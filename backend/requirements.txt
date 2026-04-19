@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 pillow
-easyocr
+easyocr==1.6.2
 opencv-python-headless
 numpy
 spacy
@@ -21,4 +21,4 @@ requests
 httpx
 pytesseract
 rapidfuzz
-sqlalchemy
+python-bidi==0.4.2

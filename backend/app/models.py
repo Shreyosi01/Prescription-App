@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, String, Float, Integer, Text, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
@@ -16,7 +16,7 @@ class User(Base):
     phone = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
-
+    push_token = Column(String, nullable=True)
     prescriptions = relationship("Prescription", back_populates="owner", cascade="all, delete-orphan")
     medications = relationship("Medication", back_populates="owner", cascade="all, delete-orphan")
     family_members = relationship("FamilyMember", back_populates="owner", cascade="all, delete-orphan")
@@ -76,13 +76,21 @@ class Medication(Base):
     dose = Column(String)
     color = Column(String)
     color_bg = Column(String)
+    frequency = Column(String, nullable=True)
+    form = Column(String, nullable=True)
+    duration = Column(String, nullable=True)
     
     # Refill Tracking
     total_quantity = Column(Float, default=30.0) 
     remaining_quantity = Column(Float, default=30.0)
     refill_threshold = Column(Float, default=5.0) # Notify when <= 5 left
     is_refill_reminder_on = Column(Boolean, default=True)
-
+    bottle_count        = Column(Integer, nullable=True)   # NEW: number of bottles/packs
+    pills_per_bottle    = Column(Integer, nullable=True)   # NEW: pills per bottle
+    notify_email        = Column(Boolean, default=True)    # NEW
+    notify_push         = Column(Boolean, default=True)
+    last_refill_alert_at = Column(DateTime, nullable=True)
+    explanation_json = Column(Text, nullable=True) # AI generated details cached
     owner = relationship("User", back_populates="medications")
     member = relationship("FamilyMember", back_populates="medications")
     member_id = Column(String, ForeignKey("family_members.id"), nullable=True)

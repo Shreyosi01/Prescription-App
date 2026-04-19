@@ -10,17 +10,20 @@ import hashlib
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
-
+import httpx
 import re
-
+import requests
+import urllib.request
+import urllib.parse
+import asyncio
 from app.ocr import extract_text
 from app.clean import clean_text
 from app.matcher import detect_medicines
 from app.llm_corrector import correct_medicines
 from app.structurer import structure_medicines
 from app.explain import explain_medicine
-from app.llm import call_llm_chat, call_llm
-
+from app.llm import call_llm_chat, call_llm, call_llm_vision
+import math
 # ─── Models ───────────────────────────────────────────────────────────────
 
 class ChatMessage(BaseModel):
@@ -53,7 +56,15 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:19000",
+        "http://localhost:19006",
+        "http://localhost:3000",
+        "http://10.78.242.121:8000",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -65,7 +76,24 @@ app.include_router(medications_router)
 app.include_router(symptoms_router)
 app.include_router(family_router)
 
-# ─── Endpoints ────────────────────────────────────────────────────────────
+@app.get("/api/health-score")
+async def get_health_score(user_id: str, db: Session = Depends(get_db)):
+    medications = db.query(models.Medication).filter(models.Medication.user_id == user_id).all()
+    if not medications:
+        return {"score": 72, "trend": "+0 this week"}
+    total_doses = 0
+    taken_doses = 0
+    for med in medications:
+        times = db.query(models.MedicationTime).filter(models.MedicationTime.medication_id == med.id).all()
+        total_doses += len(times)
+        taken_doses += sum(1 for t in times if t.taken)
+    
+    score = 72
+    if total_doses > 0:
+        adherence = taken_doses / total_doses
+        score = min(100, 72 + int(adherence * 28))
+        
+    return {"score": score, "trend": f"+{int(adherence * 10)} this week"}
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
@@ -210,10 +238,14 @@ async def analyze(
             buffer.write(content)
 
         # 1. OCR
+        # 1. OCR
         ocr_data = extract_text(file_path)
         raw_text = ocr_data["full_text"]
         ocr_words = ocr_data["words"]
         avg_confidence = ocr_data["avg_confidence"]
+
+        print(f"=== RAW OCR (confidence: {avg_confidence}) ===")
+        print(raw_text[:300])
 
         if not raw_text.strip():
             return {"status": "error", "message": "No readable text found in image"}
@@ -221,12 +253,98 @@ async def analyze(
         # 2. Clean text
         cleaned_text = clean_text(raw_text)
 
-        # 3. Rough medicine detection
-        rough_meds = detect_medicines(cleaned_text)
+        # Decide: use vision directly if OCR confidence is too low
+        word_count = len(cleaned_text.split())
+        use_vision = avg_confidence < 55 or word_count < 10
 
-        # 4. LLM correction (using primary OCR + TrOCR as secondary evidence)
-        trocr_text = ocr_data.get("trocr_text", "")
-        corrected_meds = correct_medicines(rough_meds, cleaned_text, country, trocr_text=trocr_text)
+        if use_vision:
+            print("[VISION FALLBACK] OCR too noisy — sending image directly to Claude vision")
+            
+            from app.structurer import COUNTRY_SHORTHAND
+            shorthand = COUNTRY_SHORTHAND.get(country, COUNTRY_SHORTHAND["India"])
+            
+            vision_prompt = f"""You are a clinical pharmacist reading a handwritten prescription from {country}.
+
+Read EVERY line of the prescription carefully. Extract ALL medicines listed in the advice/prescription section.
+
+Prescription shorthand for {country}:
+{shorthand}
+
+IMPORTANT RULES:
+1. If you see the same medicine name twice (e.g. "Nikoran" and "Nikoan"), they are the SAME medicine — include it only ONCE with the best reading.
+2. Look carefully at numbers next to medicine names — those are dosages (e.g. "500" = 500mg, "40" = 40mg).
+3. Time indicators like "4 PM", "night", "morning", "BD", "OD" are frequencies — include them.
+4. Lines with dashes (———) often connect a medicine name on the left to a dose/frequency on the right.
+5. Do NOT include: doctor name, patient name, clinic address, dates, diagnoses, registration numbers.
+6. The "Advice" section is where medicines are listed — focus there.
+
+Return ONLY a valid JSON array, no markdown:
+[{{
+  "name": "exact medicine name as written",
+  "form": "tablet or syrup or capsule or drops or injection or cream",
+  "dosage": "e.g. 500 mg or 40 mg or 4 ml — empty string if not visible",
+  "frequency": "in plain English e.g. once daily or twice daily or at night or at 4 PM",
+  "duration": "e.g. 3 days or 1 month — empty string if not visible",
+  "confidence": 0.0-1.0
+}}]"""
+
+            try:
+                vision_raw = call_llm_vision(file_path, vision_prompt)
+                print("Vision response:", vision_raw)
+                
+                clean_v = vision_raw.strip().strip("```json").strip("```").strip()
+                structured = json.loads(clean_v)
+                
+                # Normalize fields
+                for item in structured:
+                    item["confidence"] = float(item.get("confidence", 0.75))
+                    item["uncertain"] = item["confidence"] < 0.6
+                    item["bbox"] = None
+                    # Ensure no null values
+                    for field in ["form", "dosage", "frequency", "duration"]:
+                        if item.get(field) is None:
+                            item[field] = ""
+
+                medicine_highlights = [
+                    {
+                        "medicine": s.get("name"),
+                        "bbox": None,
+                        "confidence": s.get("confidence", 0.75),
+                        "uncertain": s.get("uncertain", False),
+                    }
+                    for s in structured
+                ]
+
+                return {
+                    "status": "success",
+                    "raw_text": raw_text,
+                    "cleaned_text": cleaned_text,
+                    "avg_confidence": avg_confidence,
+                    "ocr_words": ocr_words,
+                    "medicine_highlights": medicine_highlights,
+                    "country": country,
+                    "currency": currency,
+                    "results": structured,
+                    "image_url": f"/uploads/{file_path.split('/')[-1]}",
+                    "image_hash": image_hash
+                }
+                
+            except Exception as e:
+                print(f"[VISION ERROR] {e} — falling through to OCR pipeline")
+                # Fall through to normal pipeline if vision fails
+
+        # NORMAL PATH — OCR confidence good enough
+        # 3. Rough medicine detection
+        fuzzy_candidates = detect_medicines(cleaned_text)
+
+        # 4. LLM correction
+        corrected_meds = correct_medicines(
+            meds=[],
+            text=cleaned_text,
+            country=country,
+            trocr_text=ocr_data.get("trocr_text", ""),
+            fuzzy_candidates=fuzzy_candidates
+        )
 
         # 5. Structure extraction
         structured = structure_medicines(corrected_meds, cleaned_text, country, ocr_words=ocr_words)
@@ -260,35 +378,379 @@ async def analyze(
             os.remove(file_path)
         raise e
 
-import urllib.request
-import urllib.parse
+import math
 
-@app.get("/api/pharmacies/nearby")
-def get_nearby_pharmacies(lat: float, lng: float):
-    query = {
-        "format": "json", "q": "pharmacy", "lat": lat, "lon": lng, 
-        "bounded": 1, "viewbox": f"{lng-0.05},{lat+0.05},{lng+0.05},{lat-0.05}", "limit": 10
-    }
-    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(query)
-    req = urllib.request.Request(url, headers={"User-Agent": "PrescriptionApp/1.0"})
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def is_open_now(opening_hours_str: str):
+    if not opening_hours_str:
+        return None
+    s = opening_hours_str.lower().strip()
+    if s == "24/7":
+        return True
+    days = ["mo", "tu", "we", "th", "fr", "sa", "su"]
+    today = days[datetime.now().weekday()]
+    now_minutes = datetime.now().hour * 60 + datetime.now().minute
+    for part in s.split(";"):
+        part = part.strip()
+        match = re.search(r'(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})', part)
+        if match and today in part:
+            open_m = int(match.group(1)) * 60 + int(match.group(2))
+            close_m = int(match.group(3)) * 60 + int(match.group(4))
+            return open_m <= now_minutes <= close_m
+    return None
+
+# Keywords that indicate a result is NOT a pharmacy
+NON_PHARMACY_KEYWORDS = [
+    "hospital", "clinic", "doctor", "nursing", "school", "college",
+    "hotel", "restaurant", "cafe", "shop", "store", "market", "mall",
+    "salon", "beauty", "gym", "fitness", "bank", "atm", "temple",
+    "church", "mosque", "office", "agency", "courier", "petrol", "fuel",
+]
+
+def is_likely_pharmacy(name: str, tags: dict = None) -> bool:
+    """Filter out results that are clearly not pharmacies."""
+    if not name:
+        return False
+    name_lower = name.lower()
+    
+    # Reject if name contains non-pharmacy keywords
+    for kw in NON_PHARMACY_KEYWORDS:
+        if kw in name_lower:
+            return False
+    
+    # Accept if name contains pharmacy-related words
+    pharmacy_words = ["pharma", "pharmacy", "medical", "medicine", "drug", 
+                      "chemist", "health", "medic", "dispensary", "apollo",
+                      "med ", "meds", "rx", "care", "wellness"]
+    for kw in pharmacy_words:
+        if kw in name_lower:
+            return True
+    
+    # For Overpass results, trust the amenity=pharmacy tag completely
+    if tags and tags.get("amenity") == "pharmacy":
+        return True
+    
+    # For Nominatim, if name doesn't match any known word, be skeptical
+    # but still include it (Overpass already filtered by amenity tag)
+    return True
+
+
+def parse_overpass_results(elements: list, user_lat: float, user_lng: float) -> list:
+    results = []
+    seen = set()
+    for el in elements:
+        tags = el.get("tags", {})
+        name = tags.get("name")
+        if not name or name.lower() in seen:
+            continue
+
+        if not is_likely_pharmacy(name, tags):
+            continue
+
+        seen.add(name.lower())
+
+        # Center coordinates for ways, or direct lat/lon for nodes
+        plat = el.get("lat") or el.get("center", {}).get("lat")
+        plng = el.get("lon") or el.get("center", {}).get("lon")
+
+        if plat is None or plng is None:
+            continue
+
+        dist = haversine_km(user_lat, user_lng, float(plat), float(plng))
+
+        # Address construction
+        addr_parts = [
+            tags.get("addr:housenumber"),
+            tags.get("addr:street"),
+            tags.get("addr:suburb") or tags.get("addr:city")
+        ]
+        address = ", ".join([p for p in addr_parts if p])
+
+        results.append({
+            "id": str(el.get("id", "")),
+            "title": name,
+            "latitude": float(plat),
+            "longitude": float(plng),
+            "rating": None,
+            "address": address or "Address not specified",
+            "open_now": is_open_now(tags.get("opening_hours")),
+            "place_id": None,
+            "distanceKm": round(dist, 3),
+        })
+
+    results.sort(key=lambda x: x["distanceKm"])
+    return results
+
+
+def parse_nominatim_results(items: list, user_lat: float, user_lng: float) -> list:
+    results = []
+    seen = set()
+    for item in items:
+        # Nominatim returns name in 'display_name' or 'namedetails'
+        name = item.get("namedetails", {}).get("name") or item.get("name") or (item.get("display_name", "").split(",")[0] if item.get("display_name") else "Unknown")
+        if not name or name.lower() in seen:
+            continue
+
+        if not is_likely_pharmacy(name):
+            continue
+
+        seen.add(name.lower())
+
+        try:
+            plat = float(item["lat"])
+            plng = float(item["lon"])
+        except (KeyError, ValueError, TypeError):
+            continue
+
+        dist = haversine_km(user_lat, user_lng, plat, plng)
+
+        # Nominatim display_name is usually a full address
+        full_address = item.get("display_name", "")
+
+        results.append({
+            "id": str(item.get("osm_id", "")),
+            "title": name,
+            "latitude": plat,
+            "longitude": plng,
+            "rating": None,
+            "address": full_address,
+            "open_now": None,  # Nominatim doesn't provide opening hours usually
+            "place_id": str(item.get("place_id", "")),
+            "distanceKm": round(dist, 3),
+        })
+    results.sort(key=lambda x: x["distanceKm"])
+    return results
+
+import asyncio
+import time
+
+# ── Simple in-memory cache (geohash ~500m grid) ──────────────────────────────
+_pharmacy_cache: dict = {}
+CACHE_TTL_SECONDS = 60 * 60  # 1 hour
+
+def _cache_key(lat: float, lng: float) -> str:
+    """Round to ~500m grid for cache bucketing."""
+    return f"{round(lat, 2)},{round(lng, 2)}"
+
+def _cache_get(lat, lng):
+    key = _cache_key(lat, lng)
+    entry = _pharmacy_cache.get(key)
+    if entry and (time.time() - entry["ts"]) < CACHE_TTL_SECONDS:
+        print(f"[CACHE] HIT for {key}")
+        return entry["data"]
+    return None
+
+def _cache_set(lat, lng, data):
+    key = _cache_key(lat, lng)
+    _pharmacy_cache[key] = {"ts": time.time(), "data": data}
+
+# ── Overpass: parallel fetch with per-mirror timeout ─────────────────────────
+async def fetch_overpass(lat: float, lng: float, radius: int = 3000):
+    overpass_query = f"""
+[out:json][timeout:20];
+(
+  node["amenity"="pharmacy"](around:{radius},{lat},{lng});
+  way["amenity"="pharmacy"](around:{radius},{lat},{lng});
+);
+out center tags;
+"""
+    mirrors = [
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        "https://overpass.openstreetmap.ru/api/interpreter",
+    ]
+
+    async def try_mirror(mirror: str):
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(connect=6, read=22, write=6, pool=6)) as client:
+                resp = await client.post(
+                    mirror,
+                    data={"data": overpass_query},
+                    headers={"User-Agent": "PrescriptionApp/1.0"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("elements"):
+                        print(f"[OVERPASS] ✓ {mirror} → {len(data['elements'])} elements")
+                        return data
+                print(f"[OVERPASS] {mirror} → HTTP {resp.status_code}, empty or no elements")
+        except Exception as e:
+            print(f"[OVERPASS] {mirror} failed: {type(e).__name__}: {e}")
+        return None
+
+    # Race all mirrors — return first non-None result
+    tasks = [asyncio.create_task(try_mirror(m)) for m in mirrors]
     try:
-        with urllib.request.urlopen(req, timeout=5) as response:
-            data = json.loads(response.read().decode())
-        results = []
-        for i, item in enumerate(data):
-            title = item.get("name")
-            if not title: title = "Local Pharmacy"
-            results.append({
-                "id": str(item.get("place_id", i)),
-                "title": title,
-                "latitude": float(item.get("lat")),
-                "longitude": float(item.get("lon"))
-            })
-        # If API returns nothing in area, return empty instead of dummy so it reflects 
-        # real location accurately.
-        return {"status": "success", "pharmacies": results}
+        for done in asyncio.as_completed(tasks):
+            result = await done
+            if result:
+                # Cancel remaining tasks
+                for t in tasks:
+                    t.cancel()
+                return result
+    except asyncio.CancelledError:
+        pass
+    return None
+
+
+# ── Nominatim: primary fallback ───────────────────────────────────────────────
+async def fetch_nominatim(lat: float, lng: float):
+    delta = 0.018
+    url = (
+        f"https://nominatim.openstreetmap.org/search"
+        f"?amenity=pharmacy"
+        f"&viewbox={lng-delta},{lat+delta},{lng+delta},{lat-delta}"
+        f"&bounded=1&format=json&limit=30&addressdetails=1&namedetails=1"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            resp = await client.get(url, headers={"User-Agent": "PrescriptionApp/1.0"})
+            if resp.status_code == 200:
+                items = resp.json()
+                # ← Remove strict category==amenity && type==pharmacy filter
+                # Nominatim with amenity=pharmacy query is already filtered
+                items.sort(key=lambda x: haversine_km(lat, lng, float(x["lat"]), float(x["lon"])))
+                print(f"[NOMINATIM] ✓ {len(items)} pharmacies")
+                return items
+            print(f"[NOMINATIM] HTTP {resp.status_code}")
     except Exception as e:
-        return {"status": "error", "pharmacies": []}
+        print(f"[NOMINATIM] Failed: {type(e).__name__}: {e}")
+    return []
+
+
+# ── Photon: secondary fallback (runs on OSM data, very reliable) ──────────────
+async def fetch_photon(lat: float, lng: float):
+    # bbox_size controls search radius — increase from default
+    url = (
+        f"https://photon.komoot.io/api/"
+        f"?q=pharmacy&lat={lat}&lon={lng}&limit=30&lang=en"
+        f"&bbox={lng-0.05},{lat-0.05},{lng+0.05},{lat+0.05}"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            resp = await client.get(url, headers={"User-Agent": "PrescriptionApp/1.0"})
+            if resp.status_code == 200:
+                features = resp.json().get("features", [])
+                print(f"[PHOTON RAW] {len(features)} total features")
+                for f in features[:3]:
+                    print(f"  → {f.get('properties', {}).get('name')} | osm_key={f.get('properties', {}).get('osm_key')} osm_value={f.get('properties', {}).get('osm_value')}")
+                
+                # Filter: only amenity=pharmacy
+                features = [
+                    f for f in features
+                    if f.get("properties", {}).get("osm_key") == "amenity"
+                    and f.get("properties", {}).get("osm_value") == "pharmacy"
+                ]
+                features.sort(key=lambda f: haversine_km(
+                    lat, lng,
+                    f["geometry"]["coordinates"][1],
+                    f["geometry"]["coordinates"][0],
+                ))
+                print(f"[PHOTON] ✓ {len(features)} pharmacies after filter")
+                return features
+            print(f"[PHOTON] HTTP {resp.status_code}")
+    except Exception as e:
+        print(f"[PHOTON] Failed: {type(e).__name__}: {e}")
+    return []
+
+
+def parse_photon_results(features: list, user_lat: float, user_lng: float) -> list:
+    results = []
+    seen = set()
+    for f in features:
+        props = f.get("properties", {})
+        name = props.get("name") or "Pharmacy"  # ← don't skip unnamed ones
+        
+        # Deduplicate by name+coords combo to handle same pharmacy twice
+        coords = f.get("geometry", {}).get("coordinates", [])
+        if len(coords) < 2:
+            continue
+        plng, plat = float(coords[0]), float(coords[1])
+        
+        dedup_key = f"{name.lower()}_{round(plat,4)}_{round(plng,4)}"
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        if not (-90 <= plat <= 90 and -180 <= plng <= 180):
+            continue
+
+        # Distance check — skip anything > 10km (clearly wrong data)
+        dist = haversine_km(user_lat, user_lng, plat, plng)
+        if dist > 10:
+            print(f"[PHOTON SKIP] {name} is {dist:.1f}km away — too far")
+            continue
+
+        addr_parts = list(filter(None, [
+            props.get("housenumber"),
+            props.get("street"),
+            props.get("suburb") or props.get("district") or props.get("city"),
+        ]))
+
+        results.append({
+            "id": str(props.get("osm_id", f"{plat}_{plng}")),
+            "title": name,
+            "latitude": plat,
+            "longitude": plng,
+            "rating": None,
+            "address": ", ".join(addr_parts) if addr_parts else props.get("city", ""),
+            "open_now": None,
+            "place_id": None,
+            "distanceKm": round(dist, 3),
+        })
+
+    results.sort(key=lambda x: x["distanceKm"])
+    return results
+    
+
+# ── Main endpoint ─────────────────────────────────────────────────────────────
+@app.get("/api/pharmacies/nearby")
+async def get_nearby_pharmacies(lat: float, lng: float, limit: int = 20):
+    cached = _cache_get(lat, lng)
+    if cached:
+        return {"status": "success", "pharmacies": cached[:limit], "source": "cache"}
+
+    overpass_task = asyncio.create_task(fetch_overpass(lat, lng, radius=3000))
+    photon_task = asyncio.create_task(fetch_photon(lat, lng))
+    overpass_data, photon_features = await asyncio.gather(
+        overpass_task, photon_task, return_exceptions=True
+    )
+
+    def filter_nearby(results, max_km=5.0):
+        """Hard cap — never return anything more than max_km away."""
+        filtered = [r for r in results if r.get("distanceKm", 999) <= max_km]
+        print(f"[FILTER] {len(results)} → {len(filtered)} within {max_km}km")
+        return filtered
+
+    if isinstance(overpass_data, dict) and overpass_data.get("elements"):
+        results = filter_nearby(parse_overpass_results(overpass_data["elements"], lat, lng))
+        if results:
+            _cache_set(lat, lng, results)
+            return {"status": "success", "pharmacies": results[:limit], "source": "overpass"}
+
+    if isinstance(photon_features, list) and photon_features:
+        results = filter_nearby(parse_photon_results(photon_features, lat, lng))
+        if results:
+            _cache_set(lat, lng, results)
+            return {"status": "success", "pharmacies": results[:limit], "source": "photon"}
+
+    print("[FALLBACK] Trying Nominatim...")
+    nominatim_items = await fetch_nominatim(lat, lng)
+    if nominatim_items:
+        results = filter_nearby(parse_nominatim_results(nominatim_items, lat, lng))
+        if results:
+            _cache_set(lat, lng, results)
+            return {"status": "success", "pharmacies": results[:limit], "source": "nominatim"}
+
+    return {"status": "error", "pharmacies": [], "message": "All pharmacy data sources failed."}
+    
 class ConfirmRequest(BaseModel):
     confirmed_medicines: List[dict]   # [{name, dosage, frequency, duration, form}]
     country: Optional[str] = "India"
@@ -299,6 +761,7 @@ class ConfirmRequest(BaseModel):
     image_url: Optional[str] = None
     image_hash: Optional[str] = None
     prescription_id: Optional[str] = None
+    member_id: Optional[str] = None
 
 @app.post("/confirm-medicines")
 async def confirm_medicines(req: ConfirmRequest, db: Session = Depends(get_db)):
@@ -333,7 +796,8 @@ async def confirm_medicines(req: ConfirmRequest, db: Session = Depends(get_db)):
                 country=req.country,
                 currency=req.currency,
                 image_url=req.image_url,
-                image_hash=req.image_hash
+                image_hash=req.image_hash,
+                member_id=req.member_id
             )
             db.add(new_record)
         db.commit()
@@ -347,24 +811,46 @@ async def confirm_medicines(req: ConfirmRequest, db: Session = Depends(get_db)):
         ]
         for idx, r in enumerate(results):
             c = colors[idx % len(colors)]
+            # Access nested AI result
+            exp = r.get("explanation", {})
             new_med = models.Medication(
                 user_id=req.user_id,
                 prescription_id=new_record.id,
                 name=r.get("medicine", "Unknown"),
                 dose=r.get("dosage", "Standard dose"),
                 color=c["color"],
-                color_bg=c["bg"]
+                color_bg=c["bg"],
+                explanation_json=json.dumps(r), # Cache explanation during scan
+                member_id=req.member_id
             )
             db.add(new_med)
             db.commit()
             db.refresh(new_med)
-            t1 = models.MedicationTime(medication_id=new_med.id, label="Morning", time="8:00 AM", taken=False, icon="weather-sunny")
-            t2 = models.MedicationTime(medication_id=new_med.id, label="Evening", time="8:00 PM", taken=False, icon="weather-sunset")
-            db.add_all([t1, t2])
-            db.commit()
+            
+            # Use the intelligent schedule from AI
+            schedule = exp.get("schedule", [
+                {"time": "8:00 AM", "label": "Morning", "icon": "weather-sunny"},
+                {"time": "8:00 PM", "label": "Evening", "icon": "weather-sunset"}
+            ])
+            
+            times_to_add = []
+            for s in schedule:
+                times_to_add.append(
+                    models.MedicationTime(
+                        medication_id=new_med.id, 
+                        label=s.get("label", "Dose"), 
+                        time=s.get("time", "12:00 PM"), 
+                        taken=False, 
+                        icon=s.get("icon", "pill")
+                    )
+                )
+            if times_to_add:
+                db.add_all(times_to_add)
+                db.commit()
 
     return {
         "status": "success", 
+        "prescription_id": new_record.id if new_record is not None else None,
         "results": results,
         "country": req.country,
         "currency": req.currency,

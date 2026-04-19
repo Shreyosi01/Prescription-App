@@ -63,13 +63,13 @@ const MovingBackground = ({ windowWidth }) => {
   return (
     <View style={StyleSheet.absoluteFill}>
       <LinearGradient colors={[THEME.background, '#E8F5E9']} style={StyleSheet.absoluteFill} />
-      
+
       {/* Orb 1: Mint Glow */}
       <Animated.View 
         style={[styles.blurOrb, orbStyle, drift1, { top: '10%', left: '10%', backgroundColor: '#C6F6D5' }]} 
         blurRadius={Platform.OS === 'ios' ? 80 : 40} 
       />
-      
+
       {/* Orb 2: Deep Obsidian Glow */}
       <Animated.View 
         style={[styles.blurOrb, orbStyle, drift2, { bottom: '15%', right: '5%', backgroundColor: '#1A202C', opacity: 0.08 }]} 
@@ -155,7 +155,7 @@ export default function OnboardingScreen({ navigate }) {
 
               <View style={styles.ctaGroup}>
                 <TouchableOpacity style={styles.primaryBtn} onPress={() => navigate?.('SIGNUP')}>
-                  <LinearGradient colors={[THEME.primary, '#152A24']} style={styles.btnGradient} start={{x:0, y:0}} end={{x:1, y:1}}>
+                  <LinearGradient colors={[THEME.primary, '#152A24']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                     <Text style={styles.btnText}>Start Journey</Text>
                     <Feather name="arrow-right" size={20} color={THEME.accent} />
                   </LinearGradient>
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   screen: { justifyContent: 'center', alignItems: 'center' },
   safeArea: { flex: 1, width: '100%' },
   mainContent: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingVertical: 60 },
-  
+
   // BLUR EFFECT STYLES
   blurOrb: {
     position: 'absolute',

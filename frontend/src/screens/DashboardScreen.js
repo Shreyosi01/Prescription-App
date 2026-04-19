@@ -107,7 +107,7 @@ export default function DashboardScreen({ user, navigate }) {
                 let flat = [];
                 medsData.forEach(med => {
                     (med.times || []).forEach(t => {
-                        flat.push({ id: `${med.id}_${t.id}`, medId: med.id, timeId: t.id, name: med.name, dose: med.dose, time: t.time, taken: t.taken, icon: t.icon || 'pill' });
+                        flat.push({ id: `${med.id}_${t.id}`, medId: med.id, timeId: t.id, name: med.name, dose: med.dose, time: t.time, label: t.label, taken: t.taken, icon: t.icon || 'pill' });
                     });
                 });
                 setMeds(flat);
@@ -134,7 +134,7 @@ export default function DashboardScreen({ user, navigate }) {
         return 'Good evening';
     };
 
-    const healthScore = meds.length === 0 ? 72 : Math.min(100, Math.round(40 + adherencePct * 0.6));
+    const healthScore = meds.length === 0 ? 100 : Math.round(adherencePct);
     const firstName = user?.name?.split(' ')[0] || user?.full_name?.split(' ')[0] || 'there';
 
     return (
@@ -250,7 +250,7 @@ export default function DashboardScreen({ user, navigate }) {
                                         {med.time.split(':')[0]}
                                     </Text>
                                     <Text style={[styles.medTimeAMPM, med.taken && styles.textDone]}>
-                                        {parseInt(med.time) < 12 ? 'AM' : 'PM'}
+                                        {med.time.toUpperCase().includes('PM') ? 'PM' : 'AM'}
                                     </Text>
                                 </View>
                                 <View style={[styles.medIconBox, med.taken && styles.medIconBoxDone]}>
@@ -258,7 +258,7 @@ export default function DashboardScreen({ user, navigate }) {
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={[styles.medName, med.taken && styles.medNameDone]}>{med.name}</Text>
-                                    <Text style={styles.medDose}>{med.dose}</Text>
+                                    <Text style={styles.medDose}>{med.dose}{med.dose && med.label ? ' • ' : ''}{med.label || ''}</Text>
                                 </View>
                                 <View style={[styles.medCheck, med.taken && styles.medCheckDone]}>
                                     {med.taken

@@ -26,6 +26,11 @@ class OTPVerify(BaseModel):
 class OTPResend(BaseModel):
     user_id: str
 
+class SocialLoginRequest(BaseModel):
+    email: EmailStr
+    full_name: str
+    provider: str
+
 class UserResponse(UserBase):
     id: str
     class Config:
@@ -67,6 +72,9 @@ class MedicationTimeResponse(MedicationTimeBase):
 class MedicationBase(BaseModel):
     name: str
     dose: str
+    frequency: Optional[str] = None
+    form: Optional[str] = None
+    duration: Optional[str] = None
     color: str
     color_bg: str
 
@@ -77,14 +85,19 @@ class MedicationTimeCreate(BaseModel):
 
 class MedicationCreate(BaseModel):
     user_id: str
+    member_id: Optional[str] = None
     name: str
     dose: str
+    frequency: Optional[str] = None
+    form: Optional[str] = None
+    duration: Optional[str] = None
     times: Optional[List[MedicationTimeCreate]] = None
 
 class MedicationResponse(MedicationBase):
     id: str
     user_id: str
     prescription_id: Optional[str] = None
+    explanation_json: Optional[str] = None
     times: List[MedicationTimeResponse]
     class Config:
         from_attributes = True
