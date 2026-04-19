@@ -2,13 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, 
-  ActivityIndicator, StatusBar, Dimensions, Animated, PanResponder
+  ActivityIndicator, StatusBar, Animated, PanResponder, useWindowDimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../config';
-
-const { width, height } = Dimensions.get('window');
 
 const THEME = {
   background: ['#E0F2FE', '#CCFBF1', '#D1FAE5'],
@@ -24,7 +22,7 @@ const THEME = {
 };
 
 // Background Shapes Component with Autonomous "Floating" + Cursor Tracking
-const BackgroundShapes = ({ mouseX, mouseY }) => {
+const BackgroundShapes = ({ mouseX, mouseY, windowWidth, windowHeight }) => {
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -68,14 +66,32 @@ const BackgroundShapes = ({ mouseX, mouseY }) => {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View style={[styles.bgGlowTop, topTransform]}>
+      <Animated.View style={[
+        styles.bgGlowTop, 
+        topTransform,
+        {
+          top: -windowHeight * 0.1,
+          right: -windowWidth * 0.1,
+          width: windowWidth > 800 ? windowWidth * 0.5 : windowWidth * 0.9,
+          height: windowWidth > 800 ? windowWidth * 0.5 : windowWidth * 0.9,
+        }
+      ]}>
         <LinearGradient
           colors={['#A7F3D0', '#BFDBFE', 'transparent']}
           style={{ flex: 1, borderRadius: 1000 }}
         />
       </Animated.View>
       
-      <Animated.View style={[styles.bgGlowBottom, bottomTransform]}>
+      <Animated.View style={[
+        styles.bgGlowBottom, 
+        bottomTransform,
+        {
+          bottom: -windowHeight * 0.1,
+          left: -windowWidth * 0.2,
+          width: windowWidth > 800 ? windowWidth * 0.6 : windowWidth * 1.1,
+          height: windowWidth > 800 ? windowWidth * 0.6 : windowWidth * 1.1,
+        }
+      ]}>
         <LinearGradient
           colors={['transparent', '#BFDBFE', '#A7F3D0']}
           style={{ flex: 1, borderRadius: 1000 }}
@@ -86,6 +102,8 @@ const BackgroundShapes = ({ mouseX, mouseY }) => {
 };
 
 export default function SignupScreen({ navigate, setUser }) {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -103,13 +121,19 @@ export default function SignupScreen({ navigate, setUser }) {
   const mouseX = useRef(new Animated.Value(0)).current;
   const mouseY = useRef(new Animated.Value(0)).current;
 
+  // Track dynamic dimensions to ensure PanResponder calculations are accurate on resize
+  const dimensionsRef = useRef({ width: windowWidth, height: windowHeight });
+  useEffect(() => {
+    dimensionsRef.current = { width: windowWidth, height: windowHeight };
+  }, [windowWidth, windowHeight]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (evt, gestureState) => {
-        mouseX.setValue(gestureState.moveX - width / 2);
-        mouseY.setValue(gestureState.moveY - height / 2);
+        mouseX.setValue(gestureState.moveX - dimensionsRef.current.width / 2);
+        mouseY.setValue(gestureState.moveY - dimensionsRef.current.height / 2);
       },
       onPanResponderRelease: () => {
         Animated.spring(mouseX, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
@@ -189,7 +213,12 @@ export default function SignupScreen({ navigate, setUser }) {
       
       {/* Interactive Layer */}
       <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
-        <BackgroundShapes mouseX={mouseX} mouseY={mouseY} />
+        <BackgroundShapes 
+          mouseX={mouseX} 
+          mouseY={mouseY} 
+          windowWidth={windowWidth} 
+          windowHeight={windowHeight} 
+        />
       </View>
 
       <SafeAreaView style={{ flex: 1 }} pointerEvents="box-none">
@@ -203,160 +232,164 @@ export default function SignupScreen({ navigate, setUser }) {
             showsVerticalScrollIndicator={false}
             pointerEvents="box-none" 
           >
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => navigate('LANDING')} style={styles.backButton}>
-                <Feather name="chevron-left" size={26} color={THEME.textLight} />
-              </TouchableOpacity>
-              <Text style={styles.headerIndicator}>Step {step} of 2</Text>
-            </View>
-
-            <View style={styles.introSection}>
-              <Text style={styles.title}>{step === 1 ? 'Start Your Care' : 'Verify Email'}</Text>
-              <Text style={styles.subtitle}>
-                {step === 1 
-                  ? 'Join PrescribePal for intelligent healthcare support.' 
-                  : `Please check your Email (${email}) for the code.`}
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>{step === 1 ? 'Personal Details' : 'Identity Verification'}</Text>
-              
-              {errorMsg && (
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={{ color: THEME.error || '#F43F5E', fontSize: 13 }}>{errorMsg}</Text>
-                </View>
-              )}
-
-              {step === 1 ? (
-                <>
-                  <View style={styles.inputWrapper}>
-                <Text style={styles.label}>Full Name</Text>
-                <View style={[styles.inputContainer, focusedField === 'name' && styles.inputActive]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="E.g. Dr. Anya Sharma"
-                    placeholderTextColor="#A1A1AA"
-                    onFocus={() => setFocusedField('name')}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setName}
-                    value={name}
-                  />
-                </View>
+            
+            {/* Constrained Inner Container for larger screens */}
+            <View style={styles.innerContainer}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigate('LANDING')} style={styles.backButton}>
+                  <Feather name="chevron-left" size={26} color={THEME.textLight} />
+                </TouchableOpacity>
+                <Text style={styles.headerIndicator}>Step {step} of 2</Text>
               </View>
 
-              <View style={[styles.inputWrapper, { marginTop: 16 }]}>
-                <Text style={styles.label}>Work Email</Text>
-                <View style={[styles.inputContainer, focusedField === 'email' && styles.inputActive]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="anya@clinic.io"
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    placeholderTextColor="#A1A1AA"
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setEmail}
-                    value={email}
-                  />
-                </View>
+              <View style={styles.introSection}>
+                <Text style={styles.title}>{step === 1 ? 'Start Your Care' : 'Verify Email'}</Text>
+                <Text style={styles.subtitle}>
+                  {step === 1 
+                    ? 'Join PrescribePal for intelligent healthcare support.' 
+                    : `Please check your Email (${email}) for the code.`}
+                </Text>
               </View>
 
-              <View style={[styles.inputWrapper, { marginTop: 16 }]}>
-                <Text style={styles.label}>Password</Text>
-                <View style={[styles.inputContainer, focusedField === 'password' && styles.inputActive]}>
-                  <TextInput
-                    style={styles.input}
-                    secureTextEntry={!showPassword}
-                    placeholder="At least 8 characters"
-                    placeholderTextColor="#A1A1AA"
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setPassword}
-                    value={password}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={THEME.textLight} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {password.length > 0 && (
-                <View style={styles.strengthCont}>
-                  {[1, 2, 3].map((i) => (
-                    <View key={i} style={[styles.strengthBar, i <= getStrength() && { backgroundColor: getStrength() === 3 ? THEME.primary : '#FBBF24' }]} />
-                  ))}
-                  <Text style={styles.strengthText}>
-                    {getStrength() === 1 ? 'Weak' : getStrength() === 2 ? 'Good' : 'Strong'}
-                  </Text>
-                </View>
-              )}
-
-              <View style={[styles.inputWrapper, { marginTop: 16 }]}>
-                <Text style={styles.label}>Confirm Password</Text>
-                <View style={[styles.inputContainer, focusedField === 'confirm' && styles.inputActive]}>
-                  <TextInput
-                    style={styles.input}
-                    secureTextEntry={!showPassword}
-                    placeholder="Repeat your password"
-                    placeholderTextColor="#A1A1AA"
-                    onFocus={() => setFocusedField('confirm')}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setConfirmPassword}
-                    value={confirmPassword}
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)}>
-                <View style={[styles.checkbox, agreed && styles.checkboxActive]}>
-                  {agreed && <Feather name="check" size={12} color="#FFF" />}
-                </View>
-                <Text style={styles.termsText}>I agree to the <Text style={styles.linkText}>Terms & Privacy</Text></Text>
-              </TouchableOpacity>
-              </>
-              ) : (
-                <View style={[styles.inputWrapper, { marginTop: 16 }]}>
-                  <Text style={styles.label}>Verification Code (OTP)</Text>
-                  <View style={[styles.inputContainer, focusedField === 'otp' && styles.inputActive]}>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="6-digit code"
-                      placeholderTextColor="#A1A1AA"
-                      keyboardType="number-pad"
-                      onFocus={() => setFocusedField('otp')}
-                      onBlur={() => setFocusedField(null)}
-                      onChangeText={setOtp}
-                      value={otp}
-                    />
+              <View style={styles.card}>
+                <Text style={styles.cardHeader}>{step === 1 ? 'Personal Details' : 'Identity Verification'}</Text>
+                
+                {errorMsg && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ color: THEME.error || '#F43F5E', fontSize: 13 }}>{errorMsg}</Text>
                   </View>
-                </View>
-              )}
+                )}
 
-              <TouchableOpacity 
-                style={[styles.mainButton, (!agreed && step === 1) && { opacity: 0.5 }]} 
-                onPress={step === 1 ? handleSignup : handleVerify}
-                disabled={loading}
-              >
-                <LinearGradient 
-                  colors={[THEME.primary, '#0D9488']} 
-                  style={styles.gradient}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                {step === 1 ? (
+                  <>
+                    <View style={styles.inputWrapper}>
+                      <Text style={styles.label}>Full Name</Text>
+                      <View style={[styles.inputContainer, focusedField === 'name' && styles.inputActive]}>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="E.g. Dr. Anya Sharma"
+                          placeholderTextColor="#A1A1AA"
+                          onFocus={() => setFocusedField('name')}
+                          onBlur={() => setFocusedField(null)}
+                          onChangeText={setName}
+                          value={name}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={[styles.inputWrapper, { marginTop: 16 }]}>
+                      <Text style={styles.label}>Work Email</Text>
+                      <View style={[styles.inputContainer, focusedField === 'email' && styles.inputActive]}>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="anya@clinic.io"
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          placeholderTextColor="#A1A1AA"
+                          onFocus={() => setFocusedField('email')}
+                          onBlur={() => setFocusedField(null)}
+                          onChangeText={setEmail}
+                          value={email}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={[styles.inputWrapper, { marginTop: 16 }]}>
+                      <Text style={styles.label}>Password</Text>
+                      <View style={[styles.inputContainer, focusedField === 'password' && styles.inputActive]}>
+                        <TextInput
+                          style={styles.input}
+                          secureTextEntry={!showPassword}
+                          placeholder="At least 8 characters"
+                          placeholderTextColor="#A1A1AA"
+                          onFocus={() => setFocusedField('password')}
+                          onBlur={() => setFocusedField(null)}
+                          onChangeText={setPassword}
+                          value={password}
+                        />
+                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+                          <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={THEME.textLight} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {password.length > 0 && (
+                      <View style={styles.strengthCont}>
+                        {[1, 2, 3].map((i) => (
+                          <View key={i} style={[styles.strengthBar, i <= getStrength() && { backgroundColor: getStrength() === 3 ? THEME.primary : '#FBBF24' }]} />
+                        ))}
+                        <Text style={styles.strengthText}>
+                          {getStrength() === 1 ? 'Weak' : getStrength() === 2 ? 'Good' : 'Strong'}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={[styles.inputWrapper, { marginTop: 16 }]}>
+                      <Text style={styles.label}>Confirm Password</Text>
+                      <View style={[styles.inputContainer, focusedField === 'confirm' && styles.inputActive]}>
+                        <TextInput
+                          style={styles.input}
+                          secureTextEntry={!showPassword}
+                          placeholder="Repeat your password"
+                          placeholderTextColor="#A1A1AA"
+                          onFocus={() => setFocusedField('confirm')}
+                          onBlur={() => setFocusedField(null)}
+                          onChangeText={setConfirmPassword}
+                          value={confirmPassword}
+                        />
+                      </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.termsRow} onPress={() => setAgreed(!agreed)}>
+                      <View style={[styles.checkbox, agreed && styles.checkboxActive]}>
+                        {agreed && <Feather name="check" size={12} color="#FFF" />}
+                      </View>
+                      <Text style={styles.termsText}>I agree to the <Text style={styles.linkText}>Terms & Privacy</Text></Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={[styles.inputWrapper, { marginTop: 16 }]}>
+                    <Text style={styles.label}>Verification Code (OTP)</Text>
+                    <View style={[styles.inputContainer, focusedField === 'otp' && styles.inputActive]}>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="6-digit code"
+                        placeholderTextColor="#A1A1AA"
+                        keyboardType="number-pad"
+                        onFocus={() => setFocusedField('otp')}
+                        onBlur={() => setFocusedField(null)}
+                        onChangeText={setOtp}
+                        value={otp}
+                      />
+                    </View>
+                  </View>
+                )}
+
+                <TouchableOpacity 
+                  style={[styles.mainButton, (!agreed && step === 1) && { opacity: 0.5 }]} 
+                  onPress={step === 1 ? handleSignup : handleVerify}
+                  disabled={loading}
                 >
-                  {loading ? (
-                    <ActivityIndicator color={THEME.white} />
-                  ) : (
-                    <Text style={styles.buttonText}>{step === 1 ? 'Register Now' : 'Complete Setup'}</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+                  <LinearGradient 
+                    colors={[THEME.primary, '#0D9488']} 
+                    style={styles.gradient}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color={THEME.white} />
+                    ) : (
+                      <Text style={styles.buttonText}>{step === 1 ? 'Register Now' : 'Complete Setup'}</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Already part of PrescribePal? </Text>
-              <TouchableOpacity onPress={() => navigate('LOGIN')}>
-                <Text style={styles.footerLink}>Log In</Text>
-              </TouchableOpacity>
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Already part of PrescribePal? </Text>
+                <TouchableOpacity onPress={() => navigate('LOGIN')}>
+                  <Text style={styles.footerLink}>Log In</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
           </ScrollView>
@@ -370,23 +403,26 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   bgGlowTop: { 
     position: 'absolute', 
-    top: -height * 0.1, 
-    right: -width * 0.1, 
-    width: width * 0.9, 
-    height: width * 0.9, 
     opacity: 0.2 
   },
   bgGlowBottom: { 
     position: 'absolute', 
-    bottom: -height * 0.1, 
-    left: -width * 0.2, 
-    width: width * 1.1, 
-    height: width * 1.1, 
     opacity: 0.15 
   },
-  scrollContent: { paddingHorizontal: 28, paddingBottom: 40, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10 },
+  scrollContent: { 
+    flexGrow: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', // Centers vertically on large displays
+    paddingBottom: 40, 
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10 
+  },
+  innerContainer: {
+    width: '100%',
+    maxWidth: 450, // Prevents elements from stretching too wide on tablet/laptop
+    paddingHorizontal: 28,
+  },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingVertical: 10 },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start', marginLeft: -8 },
   headerIndicator: { fontSize: 13, color: THEME.textLight, fontWeight: '500', backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
   introSection: { marginBottom: 30 },
   title: { fontSize: 32, fontWeight: '700', color: THEME.text, marginBottom: 10, letterSpacing: -0.8 },
