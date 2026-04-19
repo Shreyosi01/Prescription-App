@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator, ScrollView,
-  Dimensions, Animated, PanResponder
+  Animated, PanResponder, useWindowDimensions
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,8 +31,7 @@ const THEME = {
   shadowGlow: 'rgba(20, 184, 166, 0.15)',
 };
 
-const BackgroundShapes = ({ mouseX, mouseY }) => {
-  // 1. Create autonomous "floating" animations
+const BackgroundShapes = ({ mouseX, mouseY, windowWidth, windowHeight }) => {
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -52,11 +51,9 @@ const BackgroundShapes = ({ mouseX, mouseY }) => {
     ).start();
   }, []);
 
-  // 2. Interpolate the floating values
   const floatX = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 20] });
   const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [10, -10] });
 
-  // 3. Combine Floating + Mouse position for the Top Layer
   const layer1Transform = {
     transform: [
       { translateX: Animated.add(Animated.divide(mouseX, 15), floatX) },
@@ -65,7 +62,6 @@ const BackgroundShapes = ({ mouseX, mouseY }) => {
     ]
   };
 
-  // 4. Combine Floating + Mouse for the Bottom Layer (moving opposite)
   const layer2Transform = {
     transform: [
       { translateX: Animated.add(Animated.divide(mouseX, -10), Animated.multiply(floatX, -1)) },
@@ -75,18 +71,38 @@ const BackgroundShapes = ({ mouseX, mouseY }) => {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View style={[styles.bgGlowTop, layer1Transform]}>
+      <Animated.View style={[
+        styles.bgGlowTop, 
+        layer1Transform,
+        {
+          top: -windowHeight * 0.1,
+          right: -windowWidth * 0.1,
+          width: windowWidth > 800 ? windowWidth * 0.5 : windowWidth * 0.9,
+          height: windowWidth > 800 ? windowWidth * 0.5 : windowWidth * 0.9,
+        }
+      ]}>
         <LinearGradient colors={['#A7F3D0', '#BFDBFE', 'transparent']} style={{ flex: 1, borderRadius: 1000 }} />
       </Animated.View>
-
-      <Animated.View style={[styles.bgGlowBottom, layer2Transform]}>
+      
+      <Animated.View style={[
+        styles.bgGlowBottom, 
+        layer2Transform,
+        {
+          bottom: -windowHeight * 0.1,
+          left: -windowWidth * 0.2,
+          width: windowWidth > 800 ? windowWidth * 0.6 : windowWidth * 1.1,
+          height: windowWidth > 800 ? windowWidth * 0.6 : windowWidth * 1.1,
+        }
+      ]}>
         <LinearGradient colors={['transparent', '#BFDBFE', '#A7F3D0']} style={{ flex: 1, borderRadius: 1000 }} />
       </Animated.View>
     </View>
   );
 };
 
-export default function LoginScreen({ navigate, goBack, setUser }) {
+export default function LoginScreen({ navigate, setUser }) {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -156,13 +172,19 @@ export default function LoginScreen({ navigate, goBack, setUser }) {
   const mouseX = useRef(new Animated.Value(0)).current;
   const mouseY = useRef(new Animated.Value(0)).current;
 
+  // Keep track of dimensions in a ref for the PanResponder to avoid stale state issues
+  const dimensionsRef = useRef({ width: windowWidth, height: windowHeight });
+  useEffect(() => {
+    dimensionsRef.current = { width: windowWidth, height: windowHeight };
+  }, [windowWidth, windowHeight]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (evt, gestureState) => {
-        mouseX.setValue(gestureState.moveX - width / 2);
-        mouseY.setValue(gestureState.moveY - height / 2);
+        mouseX.setValue(gestureState.moveX - dimensionsRef.current.width / 2);
+        mouseY.setValue(gestureState.moveY - dimensionsRef.current.height / 2);
       },
       onPanResponderRelease: () => {
         Animated.spring(mouseX, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
@@ -199,70 +221,77 @@ export default function LoginScreen({ navigate, goBack, setUser }) {
       <StatusBar barStyle="dark-content" transparent backgroundColor="transparent" />
 
       <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
-        <BackgroundShapes mouseX={mouseX} mouseY={mouseY} />
+        <BackgroundShapes 
+          mouseX={mouseX} 
+          mouseY={mouseY} 
+          windowWidth={windowWidth} 
+          windowHeight={windowHeight} 
+        />
       </View>
 
       <SafeAreaView style={{ flex: 1 }} pointerEvents="box-none">
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} pointerEvents="box-none">
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} pointerEvents="box-none">
-
-            <View style={styles.header}>
-              <TouchableOpacity onPress={goBack} style={styles.backButton}>
-                <Feather name="chevron-left" size={26} color={THEME.textLight} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.introSection}>
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Log in to continue your care journey.</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardHeader}>Login</Text>
-
-              <View style={styles.inputWrapper}>
-                <Text style={styles.label}>Email</Text>
-                <View style={[styles.inputContainer, focusedField === 'email' && styles.inputActive]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="anya@clinic.io"
-                    placeholderTextColor="#A1A1AA"
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setEmail}
-                    value={email}
-                    autoCapitalize="none"
-                  />
-                </View>
+            
+            {/* Inner container centers the content and prevents stretching on large screens */}
+            <View style={styles.innerContainer}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigate('LANDING')} style={styles.backButton}>
+                  <Feather name="chevron-left" size={26} color={THEME.textLight} />
+                </TouchableOpacity>
               </View>
 
-              <View style={[styles.inputWrapper, { marginTop: 20 }]}>
-                <Text style={styles.label}>Password</Text>
-                <View style={[styles.inputContainer, focusedField === 'password' && styles.inputActive]}>
-                  <TextInput
-                    style={styles.input}
-                    secureTextEntry={!showPassword}
-                    placeholder="Enter password"
-                    placeholderTextColor="#A1A1AA"
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
-                    onChangeText={setPassword}
-                    value={password}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={THEME.textLight} />
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.introSection}>
+                <Text style={styles.title}>Welcome Back</Text>
+                <Text style={styles.subtitle}>Log in to continue your care journey.</Text>
               </View>
 
-              {errorMsg && <View style={styles.errorContainer}><Text style={styles.errorText}>{errorMsg}</Text></View>}
+              <View style={styles.card}>
+                <Text style={styles.cardHeader}>Login</Text>
+                
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>Email</Text>
+                  <View style={[styles.inputContainer, focusedField === 'email' && styles.inputActive]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="anya@clinic.io"
+                      placeholderTextColor="#A1A1AA"
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                      onChangeText={setEmail}
+                      value={email}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                </View>
 
-              <TouchableOpacity style={styles.mainButton} onPress={handleLogin} disabled={loading}>
-                <LinearGradient colors={[THEME.primary, THEME.primaryDark]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log In</Text>}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+                <View style={[styles.inputWrapper, { marginTop: 20 }]}>
+                  <Text style={styles.label}>Password</Text>
+                  <View style={[styles.inputContainer, focusedField === 'password' && styles.inputActive]}>
+                    <TextInput
+                      style={styles.input}
+                      secureTextEntry={!showPassword}
+                      placeholder="Enter password"
+                      placeholderTextColor="#A1A1AA"
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
+                      onChangeText={setPassword}
+                      value={password}
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                      <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color={THEME.textLight} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {errorMsg && <View style={styles.errorContainer}><Text style={styles.errorText}>{errorMsg}</Text></View>}
+
+                <TouchableOpacity style={styles.mainButton} onPress={handleLogin} disabled={loading}>
+                  <LinearGradient colors={[THEME.primary, THEME.primaryDark]} style={styles.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log In</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
 
             <View style={styles.divider}>
               <View style={styles.line} /><Text style={styles.dividerText}>OR SIGN IN WITH</Text><View style={styles.line} />
@@ -277,10 +306,12 @@ export default function LoginScreen({ navigate, goBack, setUser }) {
               <Text style={styles.socialButtonText}>Google</Text>
             </TouchableOpacity>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>New here? </Text>
-              <TouchableOpacity onPress={() => navigate('SIGNUP')}><Text style={styles.footerLink}>Create Account</Text></TouchableOpacity>
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>New here? </Text>
+                <TouchableOpacity onPress={() => navigate('SIGNUP')}><Text style={styles.footerLink}>Create Account</Text></TouchableOpacity>
+              </View>
             </View>
+            
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -290,11 +321,22 @@ export default function LoginScreen({ navigate, goBack, setUser }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  bgGlowTop: { position: 'absolute', top: -height * 0.1, right: -width * 0.1, width: width * 0.9, height: width * 0.9, opacity: 0.15 },
-  bgGlowBottom: { position: 'absolute', bottom: -height * 0.1, left: -width * 0.2, width: width * 1.1, height: width * 1.1, opacity: 0.12 },
-  scrollContent: { paddingHorizontal: 28, paddingBottom: 40, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10 },
+  bgGlowTop: { position: 'absolute', opacity: 0.15 },
+  bgGlowBottom: { position: 'absolute', opacity: 0.12 },
+  scrollContent: { 
+    flexGrow: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', // Helps center content vertically on large screens
+    paddingBottom: 40, 
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10 
+  },
+  innerContainer: {
+    width: '100%',
+    maxWidth: 450, // Prevents stretching on tablets and laptops
+    paddingHorizontal: 28,
+  },
   header: { marginBottom: 20 },
-  backButton: { width: 40, height: 40, justifyContent: 'center' },
+  backButton: { width: 40, height: 40, justifyContent: 'center', marginLeft: -8 },
   introSection: { marginBottom: 32 },
   title: { fontSize: 32, fontWeight: '700', color: THEME.text, letterSpacing: -0.8 },
   subtitle: { fontSize: 16, color: THEME.textLight, marginTop: 8 },

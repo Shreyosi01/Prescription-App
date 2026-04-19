@@ -1,12 +1,10 @@
 import React, { useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  StatusBar, Dimensions, SafeAreaView, ScrollView, Animated, Platform
+  StatusBar, SafeAreaView, ScrollView, Animated, Platform, useWindowDimensions
 } from 'react-native';
 import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-
-const { width, height } = Dimensions.get('window');
 
 const THEME = {
   background: '#F9FBF9',
@@ -20,7 +18,7 @@ const THEME = {
 };
 
 // --- ANIMATED BLURRY BACKGROUND COMPONENT ---
-const MovingBackground = () => {
+const MovingBackground = ({ windowWidth }) => {
   const moveAnim1 = useRef(new Animated.Value(0)).current;
   const moveAnim2 = useRef(new Animated.Value(0)).current;
 
@@ -54,32 +52,41 @@ const MovingBackground = () => {
     ]
   };
 
+  // Cap orb size for desktop/laptops so they don't become massively overwhelming
+  const orbSize = windowWidth > 800 ? 500 : windowWidth * 0.7;
+  const orbStyle = {
+    width: orbSize,
+    height: orbSize,
+    borderRadius: orbSize / 2,
+  };
+
   return (
     <View style={StyleSheet.absoluteFill}>
       <LinearGradient colors={[THEME.background, '#E8F5E9']} style={StyleSheet.absoluteFill} />
 
       {/* Orb 1: Mint Glow */}
-      <Animated.View
-        style={[styles.blurOrb, drift1, { top: '10%', left: '10%', backgroundColor: '#C6F6D5' }]}
-        blurRadius={Platform.OS === 'ios' ? 80 : 40}
+      <Animated.View 
+        style={[styles.blurOrb, orbStyle, drift1, { top: '10%', left: '10%', backgroundColor: '#C6F6D5' }]} 
+        blurRadius={Platform.OS === 'ios' ? 80 : 40} 
       />
 
       {/* Orb 2: Deep Obsidian Glow */}
-      <Animated.View
-        style={[styles.blurOrb, drift2, { bottom: '15%', right: '5%', backgroundColor: '#1A202C', opacity: 0.08 }]}
-        blurRadius={Platform.OS === 'ios' ? 100 : 50}
+      <Animated.View 
+        style={[styles.blurOrb, orbStyle, drift2, { bottom: '15%', right: '5%', backgroundColor: '#1A202C', opacity: 0.08 }]} 
+        blurRadius={Platform.OS === 'ios' ? 100 : 50} 
       />
 
       {/* Orb 3: Accent Center */}
-      <Animated.View
-        style={[styles.blurOrb, drift1, { bottom: '40%', left: '-10%', backgroundColor: THEME.accent, opacity: 0.12 }]}
-        blurRadius={Platform.OS === 'ios' ? 90 : 45}
+      <Animated.View 
+        style={[styles.blurOrb, orbStyle, drift1, { bottom: '40%', left: '-10%', backgroundColor: THEME.accent, opacity: 0.12 }]} 
+        blurRadius={Platform.OS === 'ios' ? 90 : 45} 
       />
     </View>
   );
 };
 
 export default function OnboardingScreen({ navigate }) {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -97,17 +104,17 @@ export default function OnboardingScreen({ navigate }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      <MovingBackground />
+      <MovingBackground windowWidth={windowWidth} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        snapToInterval={height}
+        snapToInterval={windowHeight}
         decelerationRate="fast"
         pagingEnabled
-        contentContainerStyle={{ width }}
+        contentContainerStyle={{ width: windowWidth }}
       >
         {/* PAGE 1 */}
-        <View style={styles.screen}>
+        <View style={[styles.screen, { height: windowHeight, width: windowWidth }]}>
           <SafeAreaView style={styles.safeArea}>
             <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
               <View style={styles.header}>
@@ -133,8 +140,8 @@ export default function OnboardingScreen({ navigate }) {
         </View>
 
         {/* PAGE 2 */}
-        <View style={styles.screen}>
-          <View style={styles.glassCard}>
+        <View style={[styles.screen, { height: windowHeight, width: windowWidth }]}>
+          <View style={[styles.glassCard, { height: Math.min(windowHeight * 0.7, 600) }]}>
             <View style={styles.cardInner}>
               <View style={styles.visualContainer}>
                 <Animated.View style={[styles.ring, { transform: [{ scale: pulseAnim }] }]} />
@@ -168,16 +175,13 @@ export default function OnboardingScreen({ navigate }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.background },
-  screen: { height, width, justifyContent: 'center', alignItems: 'center' },
+  screen: { justifyContent: 'center', alignItems: 'center' },
   safeArea: { flex: 1, width: '100%' },
   mainContent: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingVertical: 60 },
 
   // BLUR EFFECT STYLES
   blurOrb: {
     position: 'absolute',
-    width: width * 0.7,
-    height: width * 0.7,
-    borderRadius: (width * 0.7) / 2,
     opacity: 0.4,
   },
 
@@ -186,7 +190,7 @@ const styles = StyleSheet.create({
   badgeText: { color: THEME.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   brandTitle: { fontSize: 24, fontWeight: '800', color: THEME.primary, marginTop: 15, letterSpacing: 2 },
 
-  heroCenter: { alignItems: 'center' },
+  heroCenter: { alignItems: 'center', paddingHorizontal: 20 },
   kicker: { color: THEME.accent, fontSize: 12, fontWeight: '900', letterSpacing: 4, marginBottom: 12 },
   h1: { fontSize: 48, fontWeight: '800', textAlign: 'center', color: THEME.primary, lineHeight: 54 },
   accentBar: { width: 40, height: 4, backgroundColor: THEME.accent, borderRadius: 2, marginTop: 24 },
@@ -194,7 +198,20 @@ const styles = StyleSheet.create({
   footerHint: { alignItems: 'center', gap: 8 },
   hintText: { fontSize: 10, fontWeight: '800', color: THEME.textMuted, letterSpacing: 2 },
 
-  glassCard: { width: width * 0.9, height: height * 0.7, backgroundColor: THEME.surface, borderRadius: 40, borderWidth: 1, borderColor: THEME.border, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5, overflow: 'hidden' },
+  glassCard: { 
+    width: '90%', 
+    maxWidth: 450, // Constrains width on laptops/tablets
+    backgroundColor: THEME.surface, 
+    borderRadius: 40, 
+    borderWidth: 1, 
+    borderColor: THEME.border, 
+    shadowColor: '#000', 
+    shadowOffset: {width: 0, height: 10}, 
+    shadowOpacity: 0.05, 
+    shadowRadius: 20, 
+    elevation: 5, 
+    overflow: 'hidden' 
+  },
   cardInner: { flex: 1, padding: 32, alignItems: 'center' },
   visualContainer: { width: 150, height: 150, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: THEME.background, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
