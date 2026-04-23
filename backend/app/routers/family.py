@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from .. import models
+from ..utils import check_and_reset_daily
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/family", tags=["Family"])
@@ -165,7 +166,7 @@ def _days_left(med: models.Medication) -> Optional[int]:
 
 def _compute_health_score(meds: List[models.Medication]) -> tuple[int, str]:
     if not meds:
-        return 100, "Excellent"
+        return 0, "Needs Attention" # Start at 0
 
     # 1. Refill-based baseline (30% weight)
     refill_score = 100
@@ -190,7 +191,7 @@ def _compute_health_score(meds: List[models.Medication]) -> tuple[int, str]:
     refill_score = max(0, refill_score)
     
     # 2. Adherence-based component (70% weight)
-    adherence_pct = (taken_times / total_times * 100) if total_times > 0 else 100
+    adherence_pct = (taken_times / total_times * 100) if total_times > 0 else 0
     
     # Composite score
     score = int(adherence_pct)
@@ -275,6 +276,9 @@ async def get_family(
     Uses a single DB round-trip per aggregate via joined loading — no N+1.
     """
     _assert_user_exists(user_id, db)
+    
+    # Daily reset check
+    check_and_reset_daily(user_id, db)
 
     query = (
         db.query(models.FamilyMember)
@@ -364,6 +368,8 @@ async def get_family_stats(user_id: str, db: Session = Depends(get_db)):
 )
 async def get_member(member_id: str, db: Session = Depends(get_db)):
     m = _fetch_member_or_404(member_id, db, load_relations=True)
+    # Reset check
+    check_and_reset_daily(m.user_id, db)
     return _serialize_member(m, m.medications, len(m.prescriptions))
 
 

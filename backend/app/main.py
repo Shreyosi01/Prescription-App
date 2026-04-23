@@ -23,6 +23,7 @@ from app.llm_corrector import correct_medicines
 from app.structurer import structure_medicines
 from app.explain import explain_medicine
 from app.llm import call_llm_chat, call_llm, call_llm_vision
+from app.utils import check_and_reset_daily
 import math
 
 # ─── Models ───────────────────────────────────────────────────────────────
@@ -79,13 +80,20 @@ app.include_router(family_router)
 
 @app.get("/api/user/health-score") # Fixed path to include /user/
 async def get_health_score(user_id: str, db: Session = Depends(get_db)):
-    medications = db.query(models.Medication).filter(models.Medication.user_id == user_id).all()
+    # Perform daily reset check
+    user = check_and_reset_daily(user_id, db)
+    
+    medications = db.query(models.Medication).filter(
+        models.Medication.user_id == user_id,
+        models.Medication.member_id == None
+    ).all()
     
     # If no medications, return a default baseline score
     if not medications:
         return {
             "status": "success", 
-            "score": 72, 
+            "score": 0, 
+            "streak": user.streak if user else 0,
             "trend": "+0 this week"
         }
         
@@ -97,16 +105,17 @@ async def get_health_score(user_id: str, db: Session = Depends(get_db)):
         total_doses += len(times)
         taken_doses += sum(1 for t in times if t.taken)
     
-    # Calculate adherence-based score
-    score = 72
+    # Calculate adherence-based score (0-100)
+    score = 0
     adherence = 0
     if total_doses > 0:
         adherence = taken_doses / total_doses
-        score = min(100, 72 + int(adherence * 28))
+        score = int(adherence * 100)
         
     return {
         "status": "success", 
         "score": score, 
+        "streak": user.streak if user else 0,
         "trend": f"+{int(adherence * 10)} this week"
     }
 

@@ -32,7 +32,8 @@ export default function DashboardScreen({ user, navigate }) {
     const [recentScans, setRecentScans] = useState([]);
     const [medsLoaded, setMedsLoaded] = useState(false);
     const [activeTip, setActiveTip] = useState(HEALTH_TIPS[0]);
-    const [healthScore, setHealthScore] = useState('--'); 
+    const [healthScore, setHealthScore] = useState(0); 
+    const [streak, setStreak] = useState(0);
     
     // Animation Refs
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -77,8 +78,9 @@ export default function DashboardScreen({ user, navigate }) {
             // 1. Process Health Score (Aligned with your new backend response)
             if (scoreRes.ok) {
                 const scoreData = await scoreRes.json();
-                if (scoreData.status === 'success' && scoreData.score !== undefined) {
-                    setHealthScore(scoreData.score);
+                if (scoreData.status === 'success') {
+                    setHealthScore(scoreData.score ?? 0);
+                    setStreak(scoreData.streak ?? 0);
                 }
             }
 
@@ -181,8 +183,8 @@ export default function DashboardScreen({ user, navigate }) {
                                 <Text style={styles.scoreCircleVal}>{healthScore}</Text>
                                 <Text style={styles.scoreCircleSub}>/ 100</Text>
                             </View>
-                            <View style={styles.streakBadge}>
-                                <Text style={styles.streakText}>🔥 {takenCount > 0 ? '3 Day' : '0 Day'} Streak</Text>
+                             <View style={styles.streakBadge}>
+                                <Text style={styles.streakText}>🔥 {streak} Day Streak</Text>
                             </View>
                         </View>
                     </View>
