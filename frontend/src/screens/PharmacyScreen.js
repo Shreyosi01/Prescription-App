@@ -239,100 +239,100 @@ export default function PharmacyScreen() {
     return () => clearTimeout(t);
   }, []);
 
-const fetchLocationAndPharmacies = async () => {
-  setLoading(true); setErrorMsg(null); setMapReady(false);
-  try {
-    let coords = null;
+  const fetchLocationAndPharmacies = async () => {
+    setLoading(true); setErrorMsg(null); setMapReady(false);
+    try {
+      let coords = null;
 
-    // ── Web: use browser native geolocation (bypasses expo-location CoreLocation issues) ──
-    // ── Web: use browser native geolocation ONLY ──
-if (IS_WEB) {
-  coords = await new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation not supported by your browser.'));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        console.log('[Web GPS] success:', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
-        resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      },
-      async (err) => {
-        console.warn('[Web GPS] failed:', err.code, err.message, '— trying IP fallback');
-        try {
-          // ip-api.com is more precise than ipapi.co
-          const r = await fetch('http://ip-api.com/json/?fields=lat,lon,city,status');
-          const d = await r.json();
-          console.log('[IP Fallback]', d);
-          if (d.status === 'success' && d.lat && d.lon) {
-            resolve({ latitude: d.lat, longitude: d.lon });
-          } else {
-            reject(new Error('Could not determine location.'));
+      // ── Web: use browser native geolocation (bypasses expo-location CoreLocation issues) ──
+      // ── Web: use browser native geolocation ONLY ──
+      if (IS_WEB) {
+        coords = await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error('Geolocation not supported by your browser.'));
+            return;
           }
-        } catch {
-          reject(new Error('Location unavailable. Please allow location access and retry.'));
+
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              console.log('[Web GPS] success:', pos.coords.latitude, pos.coords.longitude, 'accuracy:', pos.coords.accuracy, 'm');
+              resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+            },
+            async (err) => {
+              console.warn('[Web GPS] failed:', err.code, err.message, '— trying IP fallback');
+              try {
+                // ip-api.com is more precise than ipapi.co
+                const r = await fetch('http://ip-api.com/json/?fields=lat,lon,city,status');
+                const d = await r.json();
+                console.log('[IP Fallback]', d);
+                if (d.status === 'success' && d.lat && d.lon) {
+                  resolve({ latitude: d.lat, longitude: d.lon });
+                } else {
+                  reject(new Error('Could not determine location.'));
+                }
+              } catch {
+                reject(new Error('Location unavailable. Please allow location access and retry.'));
+              }
+            },
+            {
+              timeout: 12000,
+              maximumAge: 0,        // don't use cached — force fresh
+              enableHighAccuracy: true,
+            }
+          );
+        });
+      } else {
+        // ── Native: use expo-location as before ──
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setErrorMsg('Location permission denied. Please enable it in Settings.'); return;
         }
-      },
-      {
-        timeout: 12000,
-        maximumAge: 0,        // don't use cached — force fresh
-        enableHighAccuracy: true,
-      }
-    );
-  });
-}else {
-      // ── Native: use expo-location as before ──
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg('Location permission denied. Please enable it in Settings.'); return;
-      }
-      if (!(await Location.hasServicesEnabledAsync())) {
-        setErrorMsg('Location services are off. Please enable GPS.'); return;
+        if (!(await Location.hasServicesEnabledAsync())) {
+          setErrorMsg('Location services are off. Please enable GPS.'); return;
+        }
+
+        let loc = null;
+        for (const accuracy of [Location.Accuracy.Balanced, Location.Accuracy.Low]) {
+          try {
+            loc = await Promise.race([
+              Location.getCurrentPositionAsync({ accuracy }),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+            ]);
+            if (loc) break;
+          } catch (e) {
+            console.warn(`[Location] accuracy ${accuracy} failed:`, e.message);
+          }
+        }
+        if (!loc) {
+          try { loc = await Location.getLastKnownPositionAsync(); } catch (_) { }
+        }
+        if (!loc) throw new Error('Unable to determine your location. Please try again.');
+        coords = loc.coords;
       }
 
-      let loc = null;
-      for (const accuracy of [Location.Accuracy.Balanced, Location.Accuracy.Low]) {
-        try {
-          loc = await Promise.race([
-            Location.getCurrentPositionAsync({ accuracy }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
-          ]);
-          if (loc) break;
-        } catch (e) {
-          console.warn(`[Location] accuracy ${accuracy} failed:`, e.message);
-        }
-      }
-      if (!loc) {
-        try { loc = await Location.getLastKnownPositionAsync(); } catch (_) {}
-      }
-      if (!loc) throw new Error('Unable to determine your location. Please try again.');
-      coords = loc.coords;
+      setLocation(coords);
+
+      const res = await fetch(
+        `${API_URL}api/pharmacies/nearby?lat=${coords.latitude}&lng=${coords.longitude}&limit=20`
+      );
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+
+      setPharmacies(
+        (data.pharmacies ?? []).map(p => ({
+          ...p,
+          distanceKm: p.distanceKm ?? getDistanceKm(
+            coords.latitude, coords.longitude,
+            p.latitude, p.longitude
+          ),
+        }))
+      );
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to load nearby pharmacies.');
+    } finally {
+      setLoading(false);
     }
-
-    setLocation(coords);
-
-    const res = await fetch(
-      `${API_URL}api/pharmacies/nearby?lat=${coords.latitude}&lng=${coords.longitude}&limit=20`
-    );
-    if (!res.ok) throw new Error(`Server error: ${res.status}`);
-    const data = await res.json();
-
-    setPharmacies(
-      (data.pharmacies ?? []).map(p => ({
-        ...p,
-        distanceKm: p.distanceKm ?? getDistanceKm(
-          coords.latitude, coords.longitude,
-          p.latitude, p.longitude
-        ),
-      }))
-    );
-  } catch (err) {
-    setErrorMsg(err.message || 'Failed to load nearby pharmacies.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // ── Sorted list ───────────────────────────────────────────────
   const sortedPharmacies = useMemo(() => {
@@ -565,7 +565,8 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16,
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 34 : 16,
+    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
@@ -577,7 +578,9 @@ const styles = StyleSheet.create({
     backgroundColor: `${COLORS.primary}18`,
     justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#0F172A', letterSpacing: -0.3 },
+  headerTitle: {
+    fontSize: 17, fontWeight: '700', color: '#0F172A', letterSpacing: -0.3, paddingTop: 4,
+  },
   headerSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   refreshBtn: {
     width: 36, height: 36, borderRadius: 10,

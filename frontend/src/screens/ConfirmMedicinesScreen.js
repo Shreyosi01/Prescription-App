@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
     View, Text, ScrollView, Image, TouchableOpacity, TextInput,
-    StyleSheet, Dimensions, Alert, ActivityIndicator, SafeAreaView
+    StyleSheet, Dimensions, Alert, ActivityIndicator, SafeAreaView, Platform
 } from 'react-native';
 import { API_URL } from '../config';
 
@@ -24,9 +24,9 @@ export default function ConfirmMedicinesScreen({ route, navigation }) {
     );
     const [editableMeds, setEditableMeds] = useState(
         normalizedResults.reduce((acc, r) => {
-            acc[r.name] = { 
+            acc[r.name] = {
                 name: r.name,
-                dosage: r.dosage || r.dose || '', 
+                dosage: r.dosage || r.dose || '',
                 frequency: r.frequency || '',
                 duration: r.duration || ''
             };
@@ -306,7 +306,8 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F9FAFB' },
     headerBar: {
         flexDirection: 'row', alignItems: 'center', gap: 12,
-        paddingHorizontal: 16, paddingVertical: 12,
+        paddingHorizontal: 16, paddingTop: Platform.OS === 'android' ? 44 : 18,
+        paddingVertical: 12,
         backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
     },
     backBtn: {
@@ -339,8 +340,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB'
     },
     toggleOn: { backgroundColor: '#10B981', borderColor: '#10B981' },
-    editForm: { 
-        marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', 
+    editForm: {
+        marginTop: 12, flexDirection: 'row', flexWrap: 'wrap',
         gap: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#D1FAE5',
         justifyContent: 'space-between'
     },

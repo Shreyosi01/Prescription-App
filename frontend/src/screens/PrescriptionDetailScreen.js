@@ -15,8 +15,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const getCurrencySymbol = (code) => {
-    const map = { 'INR': '₹', 'USD': '$', 'GBP': '£', 'EUR': '€', 'CAD': 'C$', 'AUD': 'A$' };
-    return map[code] || code;
+  const map = { 'INR': '₹', 'USD': '$', 'GBP': '£', 'EUR': '€', 'CAD': 'C$', 'AUD': 'A$' };
+  return map[code] || code;
 };
 
 // ─── Single Medicine Card ──────────────────────────────────────────────────
@@ -151,7 +151,7 @@ const MedicineCard = ({ item, index, currency }) => {
               {(exp.generics || exp.alternatives || []).map((alt, i) => {
                 const altPrice = alt.genericPrice || alt.approximate_price;
                 const savings = alt.savingPct || (mainPrice > 0 ? Math.round(((mainPrice - parseFloat(altPrice)) / mainPrice) * 100) : null);
-                
+
                 return (
                   <View key={i} style={styles.subCard}>
                     <View style={{ flex: 1 }}>
@@ -159,12 +159,12 @@ const MedicineCard = ({ item, index, currency }) => {
                       <Text style={styles.subType}>{alt.manufacturer || alt.type || 'Generic'}</Text>
                     </View>
                     {altPrice ? (
-                       <View style={{ alignItems: 'flex-end' }}>
+                      <View style={{ alignItems: 'flex-end' }}>
                         <Text style={styles.altPrice}>{symbol} {altPrice}</Text>
                         {savings > 0 && (
-                            <View style={styles.saveBadge}>
-                                <Text style={styles.saveText}>Save {savings}%</Text>
-                            </View>
+                          <View style={styles.saveBadge}>
+                            <Text style={styles.saveText}>Save {savings}%</Text>
+                          </View>
                         )}
                       </View>
                     ) : null}
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12,
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 44 : 20, paddingBottom: 12,
   },
   headerBack: {
     width: 38, height: 38, borderRadius: 10,

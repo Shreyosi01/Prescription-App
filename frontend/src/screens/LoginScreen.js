@@ -10,6 +10,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import GoogleIcon from '../components/GoogleIcon';
 import { API_URL } from '../config';
+import * as AuthSession from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -45,15 +46,15 @@ const BackgroundShapes = ({ mouseX, mouseY, windowWidth }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Animated.View style={[styles.bgGlowTop, { width: windowWidth, height: windowWidth },
-        { transform: [{ translateX: Animated.add(Animated.divide(mouseX, 25), floatX) }, { translateY: Animated.add(Animated.divide(mouseY, 25), floatY) }] }]}>
+      { transform: [{ translateX: Animated.add(Animated.divide(mouseX, 25), floatX) }, { translateY: Animated.add(Animated.divide(mouseY, 25), floatY) }] }]}>
         <LinearGradient colors={['#5EEAD4', 'transparent']} style={{ flex: 1, borderRadius: 9999 }} />
       </Animated.View>
       <Animated.View style={[styles.bgGlowBottom, { width: windowWidth * 1.3, height: windowWidth * 1.3 },
-        { transform: [{ translateX: Animated.add(Animated.multiply(Animated.divide(mouseX, 20), -1), Animated.multiply(floatX, -0.6)) }, { translateY: Animated.add(Animated.multiply(Animated.divide(mouseY, 20), -1), Animated.multiply(floatY, -0.6)) }] }]}>
+      { transform: [{ translateX: Animated.add(Animated.multiply(Animated.divide(mouseX, 20), -1), Animated.multiply(floatX, -0.6)) }, { translateY: Animated.add(Animated.multiply(Animated.divide(mouseY, 20), -1), Animated.multiply(floatY, -0.6)) }] }]}>
         <LinearGradient colors={['transparent', '#BAE6FD60']} style={{ flex: 1, borderRadius: 9999 }} />
       </Animated.View>
       <Animated.View style={[styles.bgGlowMid, { width: windowWidth * 0.5, height: windowWidth * 0.5 },
-        { transform: [{ translateX: Animated.multiply(floatY, 0.3) }, { translateY: Animated.multiply(floatX, -0.25) }] }]}>
+      { transform: [{ translateX: Animated.multiply(floatY, 0.3) }, { translateY: Animated.multiply(floatX, -0.25) }] }]}>
         <LinearGradient colors={['#0EA5E915', 'transparent']} style={{ flex: 1, borderRadius: 9999 }} />
       </Animated.View>
     </View>
@@ -133,30 +134,64 @@ export default function LoginScreen({ navigate, setUser }) {
   })).current;
 
   // Google Auth
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  const redirectUri = AuthSession.makeRedirectUri({
+    native: 'https://auth.expo.io/@srijani67/presription-scanner',
+    web: 'http://localhost:8081',
   });
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    redirectUri: 'http://127.0.0.1:8081',
+  });
+
   useEffect(() => {
-    if (response?.type === 'success') handleGoogleSuccess(response.authentication.accessToken);
-    else if (response?.type === 'error') handleGoogleSuccess('demo-token');
+    if (response?.type === 'success') {
+      const token = response.authentication?.accessToken;
+      if (token) handleGoogleSuccess(token);
+    }
   }, [response]);
 
-  const handleGoogleSuccess = async (token) => {
+  const onGoogleTap = () => promptAsync();
+  useEffect(() => {
+    if (request) console.log('ACTUAL REDIRECT URI:', request.redirectUri);
+  }, [request]);
+  const handleGoogleSuccess = async (accessToken) => {
     setLoading(true);
     try {
+      let email, full_name;
+
+      // Try fetching user info with access token
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const googleUser = await userInfoRes.json();
+        email = googleUser.email;
+        full_name = googleUser.name;
+      } catch {
+        // Fallback if userinfo fetch fails
+        email = 'google_user_' + Date.now() + '@gmail.com';
+        full_name = 'Google User';
+      }
+
       const res = await fetch(`${API_URL}api/auth/social-login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: token === 'demo-token' ? 'user@google.com' : 'verified_' + Date.now() + '@gmail.com', full_name: 'Google User', provider: 'google' })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, full_name, provider: 'google' }),
       });
       const data = await res.json();
-      if (res.ok) { if (setUser) setUser({ ...data.user, name: data.user.full_name, token: data.access_token }); navigate('DASHBOARD'); }
-      else setErrorMsg(data.detail || 'Google authentication failed');
-    } catch { setErrorMsg('Connection failed'); } finally { setLoading(false); }
+      if (res.ok) {
+        if (setUser) setUser({ ...data.user, name: data.user.full_name, token: data.access_token });
+        navigate('DASHBOARD');
+      } else {
+        setErrorMsg(data.detail || 'Google authentication failed');
+      }
+    } catch {
+      setErrorMsg('Connection failed');
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const onGoogleTap = () => request ? promptAsync() : handleGoogleSuccess('mock-token-' + Date.now());
 
   const handleLogin = async () => {
     if (!email || !password) return setErrorMsg('Please fill in all fields');

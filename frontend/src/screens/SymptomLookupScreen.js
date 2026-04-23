@@ -533,7 +533,7 @@ const s = StyleSheet.create({
     },
     headerTop: {
         flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14,
+        paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 44 : 20, paddingBottom: 14,
     },
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },

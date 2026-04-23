@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
-    ScrollView, SafeAreaView, ActivityIndicator, StatusBar,
+    ScrollView, SafeAreaView, ActivityIndicator, StatusBar, Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOWS } from '../theme';
@@ -324,7 +324,8 @@ const styles = StyleSheet.create({
 
     header: {
         flexDirection: 'row', alignItems: 'center', gap: 14,
-        paddingHorizontal: 20, paddingVertical: 18,
+        paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 44 : 18,
+        paddingVertical: 18,
     },
     backBtn: {
         width: 38, height: 38, borderRadius: 19,

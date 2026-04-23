@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar,
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, Platform,
 } from 'react-native';
 import { COLORS } from './src/theme';
 import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -198,7 +198,7 @@ export default function App() {
       )}
 
       {/* Main content */}
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, marginBottom: showTabs ? 0 : 0 }}>
         {renderScreen()}
       </View>
 
@@ -238,25 +238,34 @@ const styles = StyleSheet.create({
   headerSafe: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   pageHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: 16, paddingVertical: 14, paddingTop: Platform.OS === 'android' ? 44 : 14, paddingBottom: 14,
+
   },
   backBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: COLORS.lightGray, justifyContent: 'center', alignItems: 'center',
   },
   pageTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
-  tabBarSafe: { backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border },
+  tabBarSafe: {
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingBottom: Platform.OS === 'android' ? 20 : 0,
+  },
   tabBar: {
-    flexDirection: 'row', alignItems: 'center', height: 60,
+    flexDirection: 'row', alignItems: 'center',
+    height: Platform.OS === 'android' ? 90 : 70,
+    paddingHorizontal: 4,
   },
   tabItem: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3,
+    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, minHeight: 64,
   },
-  tabItemCenter: { marginTop: -20 },
-  tabLabel: { fontSize: 10, fontWeight: '600', color: COLORS.inactiveTab },
+  tabItemCenter: { marginTop: -32 },
+  tabLabel: { fontSize: 11, fontWeight: '600', color: COLORS.inactiveTab },
   tabLabelActive: { color: COLORS.primary },
   scanTabIcon: {
-    width: 52, height: 52, borderRadius: 26,
+    width: 58, height: 58, borderRadius: 29,
     backgroundColor: COLORS.lightGray, justifyContent: 'center', alignItems: 'center',
     borderWidth: 3, borderColor: COLORS.background,
   },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView,
+    View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform,
     TextInput, Animated, StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -183,7 +183,7 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
                                     : 'Stay consistent, stay healthy'}
                             </Text>
                         </View>
-                         <View style={styles.headerRight}>
+                        <View style={styles.headerRight}>
                             <View style={styles.streakBadge}>
                                 <Text style={styles.streakEmoji}>🔥</Text>
                                 <Text style={styles.streakText}>{streak}d</Text>
@@ -280,22 +280,22 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
                                             <View style={{ flex: 1 }}>
                                                 <View style={styles.inlineEditor}>
                                                     <View style={styles.inlineInputs}>
-                                                        <TextInput 
-                                                            style={styles.inlineInput} 
-                                                            value={editHour} 
-                                                            onChangeText={setEditHour} 
-                                                            keyboardType="numeric" 
+                                                        <TextInput
+                                                            style={styles.inlineInput}
+                                                            value={editHour}
+                                                            onChangeText={setEditHour}
+                                                            keyboardType="numeric"
                                                             maxLength={2}
                                                             placeholder="HH"
                                                             placeholderTextColor={COLORS.textMuted}
                                                             selectTextOnFocus={true}
                                                         />
                                                         <Text style={styles.inlineSeparator}>:</Text>
-                                                        <TextInput 
-                                                            style={styles.inlineInput} 
-                                                            value={editMin} 
-                                                            onChangeText={setEditMin} 
-                                                            keyboardType="numeric" 
+                                                        <TextInput
+                                                            style={styles.inlineInput}
+                                                            value={editMin}
+                                                            onChangeText={setEditMin}
+                                                            keyboardType="numeric"
                                                             maxLength={2}
                                                             placeholder="MM"
                                                             placeholderTextColor={COLORS.textMuted}
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
     header: { paddingBottom: 24, position: 'relative', overflow: 'hidden' },
     bgDeco: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(13,148,136,0.1)', top: -80, right: -60 },
-    headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+    headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 44 : 18, paddingBottom: 16 },
     backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
     headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "presription-scanner",
+    "name": "AiLyze",
     "slug": "presription-scanner",
     "scheme": "prescribepal",
     "version": "1.0.0",
@@ -14,7 +14,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prescribepal.scanner"
     },
     "android": {
       "package": "com.prescribepal.scanner",
