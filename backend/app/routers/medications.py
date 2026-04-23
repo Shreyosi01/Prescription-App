@@ -4,11 +4,15 @@ from ..database import get_db
 from .. import models, schemas
 from typing import List, Optional
 from pydantic import BaseModel
+from ..utils import check_and_reset_daily, update_streak_on_dose
 
 router = APIRouter(prefix="/api/medications", tags=["Medications"])
 
 @router.get("", response_model=List[schemas.MedicationResponse])
 async def get_medications(user_id: str, member_id: Optional[str] = None, db: Session = Depends(get_db)):
+    # Daily reset check
+    check_and_reset_daily(user_id, db)
+    
     query = db.query(models.Medication).filter(models.Medication.user_id == user_id)
     if member_id:
         query = query.filter(models.Medication.member_id == member_id)
@@ -207,6 +211,9 @@ async def toggle_time(medication_id: str, time_id: str, db: Session = Depends(ge
         med = db.query(models.Medication).filter(models.Medication.id == medication_id).first()
         if med and med.remaining_quantity is not None and med.remaining_quantity > 0:
             med.remaining_quantity = max(0, med.remaining_quantity - 1)
+        
+        # Update streak
+        update_streak_on_dose(med.user_id, db)
     
     db.commit()
     return {"status": "success", "taken": time_entry.taken}

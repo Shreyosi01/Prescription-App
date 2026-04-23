@@ -70,6 +70,7 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
     const [editHour, setEditHour] = useState('');
     const [editMin, setEditMin] = useState('');
     const [editAmPm, setEditAmPm] = useState('');
+    const [streak, setStreak] = useState(0);
 
     const week = generateWeek();
     const progressAnim = useRef(new Animated.Value(0)).current;
@@ -77,7 +78,10 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
 
     useEffect(() => {
         Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-        if (user?.id) fetchMeds();
+        if (user?.id) {
+            fetchMeds();
+            fetchStreak();
+        }
     }, [user, activeMemberId]);
 
     useEffect(() => {
@@ -97,6 +101,16 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
         } catch (err) { console.error('Error fetching meds:', err); }
     };
 
+    const fetchStreak = async () => {
+        try {
+            const res = await fetch(`${API_URL}api/user/health-score?user_id=${user.id}`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                setStreak(data.streak || 0);
+            }
+        } catch (err) { console.error('Error fetching streak:', err); }
+    };
+
     const totalDoses = meds.reduce((acc, m) => acc + (m.times?.length || 0), 0);
     const takenDoses = meds.reduce((acc, m) => acc + (m.times?.filter(t => t.taken).length || 0), 0);
     const pct = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
@@ -111,7 +125,8 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
             return { ...m, times: m.times.map(t => t.id === timeId ? { ...t, taken: !t.taken } : t) };
         }));
         try {
-            await fetch(`${API_URL}api/medications/${medId}/times/${timeId}/toggle`, { method: 'PUT' });
+            const res = await fetch(`${API_URL}api/medications/${medId}/times/${timeId}/toggle`, { method: 'PUT' });
+            if (res.ok) fetchStreak(); // Refresh streak if dose taken
         } catch (err) { fetchMeds(); }
     };
 
@@ -168,10 +183,10 @@ export default function DoseTrackerScreen({ user, navigate, goBack, currentScree
                                     : 'Stay consistent, stay healthy'}
                             </Text>
                         </View>
-                        <View style={styles.headerRight}>
+                         <View style={styles.headerRight}>
                             <View style={styles.streakBadge}>
                                 <Text style={styles.streakEmoji}>🔥</Text>
-                                <Text style={styles.streakText}>{takenDoses > 0 ? 3 : 0}d</Text>
+                                <Text style={styles.streakText}>{streak}d</Text>
                             </View>
                         </View>
                     </View>
