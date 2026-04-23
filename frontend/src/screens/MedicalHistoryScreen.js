@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView,
-  TextInput, ActivityIndicator, Modal, Pressable, StatusBar, Animated,
+  TextInput, ActivityIndicator, Modal, Pressable, StatusBar, Animated, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOWS } from '../theme';
@@ -388,7 +388,10 @@ const styles = StyleSheet.create({
   sheetCancelText: { fontSize: 15, fontWeight: '700', color: COLORS.textSecondary },
   header: { paddingBottom: 24, position: 'relative', overflow: 'hidden' },
   bgCircle: { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(13,148,136,0.08)', top: -80, right: -60 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
+  headerTop: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 44 : 18,
+    paddingBottom: 16
+  },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   headerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
   headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },

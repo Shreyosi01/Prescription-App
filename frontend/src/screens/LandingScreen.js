@@ -39,16 +39,16 @@ const BackgroundShapes = ({ mouseX, mouseY, windowWidth }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Animated.View style={[styles.bgGlowTop, { width: windowWidth, height: windowWidth },
-        { transform: [{ translateX: Animated.add(Animated.divide(mouseX, 25), floatX) }, { translateY: Animated.add(Animated.divide(mouseY, 25), floatY) }] }]}>
+      { transform: [{ translateX: Animated.add(Animated.divide(mouseX, 25), floatX) }, { translateY: Animated.add(Animated.divide(mouseY, 25), floatY) }] }]}>
         <LinearGradient colors={['#5EEAD4', 'transparent']} style={{ flex: 1, borderRadius: 9999 }} />
       </Animated.View>
       <Animated.View style={[styles.bgGlowBottom, { width: windowWidth * 1.3, height: windowWidth * 1.3 },
-        { transform: [{ translateX: Animated.add(Animated.multiply(Animated.divide(mouseX, 20), -1), Animated.multiply(floatX, -0.6)) }, { translateY: Animated.add(Animated.multiply(Animated.divide(mouseY, 20), -1), Animated.multiply(floatY, -0.6)) }] }]}>
+      { transform: [{ translateX: Animated.add(Animated.multiply(Animated.divide(mouseX, 20), -1), Animated.multiply(floatX, -0.6)) }, { translateY: Animated.add(Animated.multiply(Animated.divide(mouseY, 20), -1), Animated.multiply(floatY, -0.6)) }] }]}>
         <LinearGradient colors={['transparent', '#BAE6FD80']} style={{ flex: 1, borderRadius: 9999 }} />
       </Animated.View>
       {/* Extra decorative orb */}
       <Animated.View style={[styles.bgGlowMid, { width: windowWidth * 0.6, height: windowWidth * 0.6 },
-        { transform: [{ translateX: Animated.multiply(floatY, 0.4) }, { translateY: Animated.multiply(floatX, -0.3) }] }]}>
+      { transform: [{ translateX: Animated.multiply(floatY, 0.4) }, { translateY: Animated.multiply(floatX, -0.3) }] }]}>
         <LinearGradient colors={['#0EA5E920', 'transparent']} style={{ flex: 1, borderRadius: 9999 }} />
       </Animated.View>
     </View>
@@ -145,7 +145,7 @@ const TabletPipelineCard = ({ item, idx, isFull, isLaptop }) => {
   return (
     <Animated.View
       style={[styles.tabPipeCard, isFull && styles.tabPipeCardFull, isLaptop && styles.tabPipeCardLaptop,
-        hovered && styles.tabPipeCardHovered, { transform: [{ scale }] }]}
+      hovered && styles.tabPipeCardHovered, { transform: [{ scale }] }]}
       onMouseEnter={onIn} onMouseLeave={onOut}
     >
       {/* Left gradient accent bar */}
@@ -193,6 +193,13 @@ export default function LandingScreen({ navigate }) {
       Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 18, friction: 9, useNativeDriver: true }),
     ]).start();
+  }, []);
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
   }, []);
 
   const pan = useRef(PanResponder.create({
@@ -247,7 +254,11 @@ export default function LandingScreen({ navigate }) {
           </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ alignItems: 'center' }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 220, alignItems: 'center' }}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+        >
           <View style={[styles.scrollContent, { maxWidth: contentMaxWidth, width: '100%' }]}>
             <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
@@ -406,34 +417,34 @@ const styles = StyleSheet.create({
   bgGlowMid: { position: 'absolute', top: '35%', right: '5%', opacity: 0.5 },
 
   /* Header */
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, zIndex: 10 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 44 : 16, paddingBottom: 16, zIndex: 10 },
   brandCont: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoGrad: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
   brandText: { fontSize: 15, fontWeight: '900', letterSpacing: 3, color: THEME.primaryDark, lineHeight: 18 },
   brandSub: { fontSize: 9, fontWeight: '800', letterSpacing: 4, color: THEME.accent, lineHeight: 12 },
-  statusPill: { borderRadius: 30, overflow: 'hidden' },
+  statusPill: { borderRadius: 30, overflow: 'hidden', },
   statusPillInner: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 30 },
   pulse: { width: 7, height: 7, borderRadius: 4, backgroundColor: THEME.accent },
-  statusText: { fontSize: 10, fontWeight: '800', color: THEME.primaryDark, letterSpacing: 1 },
+  statusText: { fontSize: 10, fontWeight: '800', color: THEME.primaryDark, letterSpacing: 1, },
 
   /* Scroll */
-  scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 4, alignItems: 'center' },
 
   /* Hero */
-  heroSection: { marginTop: 20, marginBottom: 40 },
+  heroSection: { marginTop: 20, marginBottom: 40, alignItems: 'center' },
   heroSectionLaptop: { marginTop: 60, marginBottom: 60, alignItems: 'center' },
-  heroBadgeRow: { flexDirection: 'row', marginBottom: 18 },
+  heroBadgeRow: { flexDirection: 'row', marginBottom: 18, justifyContent: 'center' },
   heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 30 },
   heroBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: THEME.primary },
   heroBadgeText: { fontSize: 10, fontWeight: '900', color: THEME.primary, letterSpacing: 2.5 },
-  heroTitle: { fontSize: 42, fontWeight: '900', color: THEME.primaryDark, lineHeight: 50, letterSpacing: -2 },
+  heroTitle: { fontSize: 42, fontWeight: '900', color: THEME.primaryDark, lineHeight: 50, letterSpacing: -2, textAlign: 'center' },
   heroTitleTablet: { fontSize: 58, lineHeight: 68 },
   heroTitleLaptop: { fontSize: 76, lineHeight: 88, textAlign: 'center' },
   heroTitleAccent: { color: THEME.accent },
-  heroSub: { fontSize: 15, color: THEME.textMuted, lineHeight: 25, marginTop: 16, fontWeight: '500' },
+  heroSub: { fontSize: 15, color: THEME.textMuted, lineHeight: 25, marginTop: 16, fontWeight: '500', textAlign: 'center' },
   heroSubTablet: { fontSize: 17, lineHeight: 28 },
   heroSubLaptop: { fontSize: 18, lineHeight: 30, textAlign: 'center', maxWidth: 580 },
-  trustRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 22 },
+  trustRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 22, justifyContent: 'center' },
   trustChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: THEME.tealLight, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 20 },
   trustChipText: { fontSize: 12, fontWeight: '700', color: THEME.primaryDark },
 
@@ -520,7 +531,7 @@ const styles = StyleSheet.create({
   /* Footer */
   footerContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center' },
   footerFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 140 },
-  footerInner: { paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 36 : 20, paddingTop: 16 },
+  footerInner: { paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 48 : Platform.OS === 'android' ? 37 : 40, paddingTop: 16 },
   footerBtn: { width: '100%', borderRadius: 100, overflow: 'hidden', shadowColor: THEME.primaryDark, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 },
   footerBtnGrad: { width: '100%', paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   footerBtnText: { color: '#FFF', fontSize: 14, fontWeight: '900', letterSpacing: 2.5 },

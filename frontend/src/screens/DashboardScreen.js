@@ -32,13 +32,13 @@ export default function DashboardScreen({ user, navigate }) {
     const [recentScans, setRecentScans] = useState([]);
     const [medsLoaded, setMedsLoaded] = useState(false);
     const [activeTip, setActiveTip] = useState(HEALTH_TIPS[0]);
-    const [healthScore, setHealthScore] = useState(0); 
+    const [healthScore, setHealthScore] = useState(0);
     const [streak, setStreak] = useState(0);
-    
+
     // Animation Refs
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(24)).current;
-    const beamAnim = useRef(new Animated.Value(0)).current; 
+    const beamAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         const randomTip = HEALTH_TIPS[Math.floor(Math.random() * HEALTH_TIPS.length)];
@@ -72,9 +72,9 @@ export default function DashboardScreen({ user, navigate }) {
             const [histRes, medsRes, scoreRes] = await Promise.all([
                 fetch(`${API_URL}api/prescriptions/history?user_id=${userId}`),
                 fetch(`${API_URL}api/medications?user_id=${userId}`),
-                fetch(`${API_URL}api/user/health-score?user_id=${userId}`) 
+                fetch(`${API_URL}api/user/health-score?user_id=${userId}`)
             ]);
-            
+
             // 1. Process Health Score (Aligned with your new backend response)
             if (scoreRes.ok) {
                 const scoreData = await scoreRes.json();
@@ -106,23 +106,23 @@ export default function DashboardScreen({ user, navigate }) {
                 let flat = [];
                 medsData.forEach(med => {
                     (med.times || []).forEach(t => {
-                        flat.push({ 
-                            id: `${med.id}_${t.id}`, 
-                            medId: med.id, 
-                            timeId: t.id, 
-                            name: med.name, 
-                            dose: med.dose, 
-                            time: t.time, 
-                            taken: t.taken, 
-                            icon: t.icon || 'pill' 
+                        flat.push({
+                            id: `${med.id}_${t.id}`,
+                            medId: med.id,
+                            timeId: t.id,
+                            name: med.name,
+                            dose: med.dose,
+                            time: t.time,
+                            taken: t.taken,
+                            icon: t.icon || 'pill'
                         });
                     });
                 });
                 setMeds(flat);
                 setMedsLoaded(true);
             }
-        } catch (err) { 
-            console.error('Dashboard fetch error:', err); 
+        } catch (err) {
+            console.error('Dashboard fetch error:', err);
         }
     };
 
@@ -135,8 +135,8 @@ export default function DashboardScreen({ user, navigate }) {
         const med = meds.find(m => m.id === id);
         if (!med) return;
         setMeds(prev => prev.map(m => m.id === id ? { ...m, taken: !m.taken } : m));
-        try { 
-            await fetch(`${API_URL}api/medications/${med.medId}/times/${med.timeId}/toggle`, { method: 'PUT' }); 
+        try {
+            await fetch(`${API_URL}api/medications/${med.medId}/times/${med.timeId}/toggle`, { method: 'PUT' });
         } catch (_) { }
     };
 
@@ -183,7 +183,7 @@ export default function DashboardScreen({ user, navigate }) {
                                 <Text style={styles.scoreCircleVal}>{healthScore}</Text>
                                 <Text style={styles.scoreCircleSub}>/ 100</Text>
                             </View>
-                             <View style={styles.streakBadge}>
+                            <View style={styles.streakBadge}>
                                 <Text style={styles.streakText}>🔥 {streak} Day Streak</Text>
                             </View>
                         </View>
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     header: { paddingBottom: 28, overflow: 'hidden', position: 'relative' },
     bgDeco1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(13,148,136,0.1)', top: -50, right: -50 },
     bgDeco2: { position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(8,145,178,0.07)', bottom: 0, left: -30 },
-    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 18 },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'android' ? 44 : 20, paddingBottom: 18 },
     greeting: { fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: '600', letterSpacing: 0.3 },
     userName: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: -0.5, marginTop: 2 },
     headerActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },

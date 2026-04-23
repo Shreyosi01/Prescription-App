@@ -27,12 +27,12 @@ export default function AskAIScreen({ goBack }) {
     const [messages, setMessages] = useState([{ id: '0', role: 'assistant', content: WELCOME_MESSAGE }]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    
+
     const [modalVisible, setModalVisible] = useState(false);
     const [modalConfig, setModalConfig] = useState({ type: 'info', title: '', message: '' });
 
     const flatRef = useRef(null);
-    
+
     const dot1 = useRef(new Animated.Value(0)).current;
     const dot2 = useRef(new Animated.Value(0)).current;
     const dot3 = useRef(new Animated.Value(0)).current;
@@ -90,7 +90,7 @@ export default function AskAIScreen({ goBack }) {
         const parts = text.split(/(\*\*.*?\*\*)/g);
         return parts.map((part, index) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-                return <Text key={index} style={[styles.boldText, isUser ? {color: '#fff'} : {color: '#14B8A6'}]}>{part.slice(2, -2)}</Text>;
+                return <Text key={index} style={[styles.boldText, isUser ? { color: '#fff' } : { color: '#14B8A6' }]}>{part.slice(2, -2)}</Text>;
             }
             return <Text key={index}>{part}</Text>;
         });
@@ -117,7 +117,7 @@ export default function AskAIScreen({ goBack }) {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
-            
+
             <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.header}>
                 <SafeAreaView>
                     <View style={styles.headerInner}>
@@ -125,7 +125,7 @@ export default function AskAIScreen({ goBack }) {
                             <TouchableOpacity onPress={goBack} style={styles.headerBtn}>
                                 <Feather name="arrow-left" size={22} color="#FFF" />
                             </TouchableOpacity>
-                            
+
                             <View style={styles.headerTextGroup}>
                                 <Text style={styles.headerTitle}>Health Assistant</Text>
                                 <View style={styles.statusRow}>
@@ -166,7 +166,7 @@ export default function AskAIScreen({ goBack }) {
 
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : null} keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}>
                     <View style={styles.suggestionRow}>
-                        <FlatList 
+                        <FlatList
                             horizontal
                             data={SUGGESTIONS}
                             showsHorizontalScrollIndicator={false}
@@ -194,7 +194,7 @@ export default function AskAIScreen({ goBack }) {
                                 onChangeText={setInput}
                                 multiline
                             />
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={[styles.sendBtn, (!input.trim() || loading) && styles.sendDisabled]}
                                 onPress={() => sendMessage()}
                                 disabled={!input.trim() || loading}
@@ -226,7 +226,7 @@ export default function AskAIScreen({ goBack }) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     header: { borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-    headerInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
+    headerInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, paddingTop: Platform.OS === 'android' ? 48 : 18, },
     headerLeftSection: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     headerBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
     headerTextGroup: { justifyContent: 'center' },
@@ -237,11 +237,11 @@ const styles = StyleSheet.create({
 
     chatArea: { flex: 1 },
     listContent: { padding: 20, paddingBottom: 10 },
-    
+
     msgWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginVertical: 8, maxWidth: '85%', gap: 8 },
     msgWrapperAI: { alignSelf: 'flex-start' },
     msgWrapperUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
-    
+
     avatarBox: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     avatarAI: { backgroundColor: '#14B8A6' },
     avatarUser: { backgroundColor: '#1E293B' },

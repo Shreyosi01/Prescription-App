@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, ActivityIndicator, 
+    View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, ActivityIndicator,
     ScrollView, Platform, Modal, Animated, StatusBar, useWindowDimensions
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -54,7 +54,7 @@ export default function ProfileScreen({ user, setUser, navigate }) {
             const response = await fetch(`${API_URL}api/auth/users/${user?.id}`, {
                 method: 'DELETE',
             });
-            
+
             if (response.ok) {
                 // Clear user data and send to landing
                 setUser(null);
@@ -96,11 +96,11 @@ export default function ProfileScreen({ user, setUser, navigate }) {
         <View style={styles.container}>
             <LinearGradient colors={['#F1F5F9', '#E2E8F0']} style={StyleSheet.absoluteFill} />
             <StatusBar barStyle="dark-content" />
-            
+
             <SafeAreaView style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={[styles.wrapper, { width: containerWidth }]}>
-                        
+
                         <View style={styles.header}>
                             <View style={styles.avatarBase}>
                                 <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={styles.avatarInner}>
@@ -112,7 +112,7 @@ export default function ProfileScreen({ user, setUser, navigate }) {
 
                         <View style={styles.mainCard}>
                             <Text style={styles.cardHeading}>Personal Information</Text>
-                            
+
                             {[
                                 { id: 'name', label: 'Full Name', val: name, set: setName, icon: 'user' },
                                 { id: 'email', label: 'Email Address', val: email, set: setEmail, icon: 'mail' },
@@ -122,7 +122,7 @@ export default function ProfileScreen({ user, setUser, navigate }) {
                                     <Text style={styles.inputLabel}>{field.label}</Text>
                                     <View style={[styles.inputBox, focusedField === field.id && styles.inputBoxActive]}>
                                         <Feather name={field.icon} size={18} color={focusedField === field.id ? COLORS.primary : COLORS.slate} />
-                                        <TextInput 
+                                        <TextInput
                                             style={styles.textInput}
                                             value={field.val}
                                             onChangeText={field.set}
@@ -134,8 +134,8 @@ export default function ProfileScreen({ user, setUser, navigate }) {
                                 </View>
                             ))}
 
-                            <TouchableOpacity 
-                                style={styles.saveBtn} 
+                            <TouchableOpacity
+                                style={styles.saveBtn}
                                 activeOpacity={0.8}
                                 onPress={() => {
                                     if (!hasChanges()) showBanner('info', "No Changes", "No modifications were detected.");
@@ -151,10 +151,10 @@ export default function ProfileScreen({ user, setUser, navigate }) {
                         <View style={styles.managementSection}>
                             <Text style={styles.managementTitle}>Account Management</Text>
                             <View style={[styles.buttonGrid, isLargeScreen && styles.buttonGridDesktop]}>
-                                
-                                <TouchableOpacity 
-                                    style={styles.tileBtn} 
-                                    onPress={() => showBanner('confirm', "Log Out", "Are you sure you want to log out?", () => {setUser(null); navigate('LANDING')})}
+
+                                <TouchableOpacity
+                                    style={styles.tileBtn}
+                                    onPress={() => showBanner('confirm', "Log Out", "Are you sure you want to log out?", () => { setUser(null); navigate('LANDING') })}
                                 >
                                     <View style={[styles.tileIcon, { backgroundColor: '#F1F5F9' }]}>
                                         <Feather name="log-out" size={20} color={COLORS.slate} />
@@ -166,12 +166,12 @@ export default function ProfileScreen({ user, setUser, navigate }) {
                                 </TouchableOpacity>
 
                                 {/* --- FIXED BUTTON: DELETE ACCOUNT --- */}
-                                <TouchableOpacity 
-                                    style={[styles.tileBtn, styles.tileBtnDanger]} 
+                                <TouchableOpacity
+                                    style={[styles.tileBtn, styles.tileBtnDanger]}
                                     onPress={() => showBanner(
-                                        'danger', 
-                                        "Delete Account", 
-                                        "This will permanently erase all your data. This cannot be undone. Proceed?", 
+                                        'danger',
+                                        "Delete Account",
+                                        "This will permanently erase all your data. This cannot be undone. Proceed?",
                                         executeDelete
                                     )}
                                     disabled={deleting}
@@ -197,10 +197,10 @@ export default function ProfileScreen({ user, setUser, navigate }) {
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalBox, { width: isLargeScreen ? 400 : '85%' }]}>
                         <View style={[styles.modalIconWrap, { backgroundColor: modalConfig.type === 'danger' ? COLORS.dangerLight : '#F0FDF4' }]}>
-                            <Feather 
-                                name={modalConfig.type === 'danger' ? 'alert-triangle' : (modalConfig.type === 'success' ? 'check-circle' : 'info')} 
-                                size={28} 
-                                color={modalConfig.type === 'danger' ? COLORS.danger : COLORS.primary} 
+                            <Feather
+                                name={modalConfig.type === 'danger' ? 'alert-triangle' : (modalConfig.type === 'success' ? 'check-circle' : 'info')}
+                                size={28}
+                                color={modalConfig.type === 'danger' ? COLORS.danger : COLORS.primary}
                             />
                         </View>
                         <Text style={styles.modalTitle}>{modalConfig.title}</Text>
@@ -212,8 +212,8 @@ export default function ProfileScreen({ user, setUser, navigate }) {
                                     <Text style={styles.mBtnSecondaryText}>Cancel</Text>
                                 </TouchableOpacity>
                             )}
-                            <TouchableOpacity 
-                                style={[styles.mBtnPrimary, { backgroundColor: modalConfig.type === 'danger' ? COLORS.danger : COLORS.primary }]} 
+                            <TouchableOpacity
+                                style={[styles.mBtnPrimary, { backgroundColor: modalConfig.type === 'danger' ? COLORS.danger : COLORS.primary }]}
                                 onPress={() => modalConfig.onConfirm ? modalConfig.onConfirm() : setModalVisible(false)}
                             >
                                 <Text style={styles.mBtnPrimaryText}>
@@ -254,18 +254,18 @@ const styles = StyleSheet.create({
 
     managementSection: { marginTop: 30, width: '100%' },
     managementTitle: { fontSize: 13, fontWeight: '800', color: COLORS.slate, marginBottom: 15, textAlign: 'center', opacity: 0.7 },
-    
+
     buttonGrid: { gap: 12 },
     buttonGridDesktop: { flexDirection: 'row' },
-    
-    tileBtn: { 
-        flex: 1, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: COLORS.white, 
-        padding: 16, 
-        borderRadius: 20, 
-        borderWidth: 1, 
+
+    tileBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.white,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
         borderColor: COLORS.border,
         gap: 15
     },

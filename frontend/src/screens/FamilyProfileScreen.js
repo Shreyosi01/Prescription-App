@@ -562,8 +562,8 @@ export default function FamilyProfilesScreen({ user, navigate }) {
                 const errData = await res.json().catch(() => ({}));
                 console.error('Add member validation error:', errData);
                 const detail = errData.detail;
-                const msg = Array.isArray(detail) 
-                    ? detail.map(d => `${d.loc[d.loc.length-1]}: ${d.msg}`).join('\n') 
+                const msg = Array.isArray(detail)
+                    ? detail.map(d => `${d.loc[d.loc.length - 1]}: ${d.msg}`).join('\n')
                     : (detail || 'Input validation failed');
                 Alert.alert('Validation Error', msg);
             } else {
@@ -611,7 +611,7 @@ export default function FamilyProfilesScreen({ user, navigate }) {
                 console.error('Update member validation error:', errData);
                 const detail = errData.detail;
                 const msg = Array.isArray(detail)
-                    ? detail.map(d => `${d.loc[d.loc.length-1]}: ${d.msg}`).join('\n')
+                    ? detail.map(d => `${d.loc[d.loc.length - 1]}: ${d.msg}`).join('\n')
                     : (detail || 'Input validation failed');
                 Alert.alert('Validation Error', msg);
             } else {
@@ -837,114 +837,114 @@ export default function FamilyProfilesScreen({ user, navigate }) {
                     </View>
                 )}
 
-            {/* Member cards */}
-            <View style={[styles.sectionRow, { paddingHorizontal: 20, marginTop: 8, marginBottom: 4 }]}>
-                <Text style={styles.sectionTitle}>All Profiles</Text>
-                <Text style={styles.countBadge}>{members.length}</Text>
-            </View>
-
-            {loading ? (
-                <>
-                    <MemberCardSkeleton />
-                    <MemberCardSkeleton />
-                </>
-            ) : members.length === 0 ? (
-                <View style={styles.emptyState}>
-                    <LinearGradient colors={GRADIENTS.teal} style={styles.emptyIcon}>
-                        <MaterialCommunityIcons name="account-group-outline" size={40} color="#fff" />
-                    </LinearGradient>
-                    <Text style={styles.emptyTitle}>
-                        {search ? 'No results found' : 'No family members yet'}
-                    </Text>
-                    <Text style={styles.emptySubtitle}>
-                        {search
-                            ? `No one matches "${search}"`
-                            : 'Add your family members to track their medications and prescriptions together.'}
-                    </Text>
-                    {!search && (
-                        <TouchableOpacity
-                            style={styles.emptyBtn}
-                            onPress={() => setModalMode('add')}
-                        >
-                            <LinearGradient colors={GRADIENTS.teal} style={styles.emptyBtnGrad}>
-                                <Feather name="user-plus" size={16} color="#fff" />
-                                <Text style={styles.emptyBtnText}>Add First Member</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    )}
+                {/* Member cards */}
+                <View style={[styles.sectionRow, { paddingHorizontal: 20, marginTop: 8, marginBottom: 4 }]}>
+                    <Text style={styles.sectionTitle}>All Profiles</Text>
+                    <Text style={styles.countBadge}>{members.length}</Text>
                 </View>
-            ) : (
-                members.map((m, i) => (
-                    <MemberCard
-                        key={m.id}
-                        member={m}
-                        index={i}
-                        isActive={m.id === activeId}
-                        onSelect={member => setActiveId(member.id)}
-                        onDelete={deleteMember}
-                        onEdit={startEdit}
-                    />
-                ))
-            )}
 
-            {/* Family-wide overview */}
-            {!loading && statsData && members.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Family Health Overview</Text>
-                    <LinearGradient colors={['#0F766E', '#0891B2']} style={styles.overviewCard}>
-                        <View style={styles.overviewRow}>
-                            {[
-                                { value: statsData.total_meds, label: 'Total Medicines' },
-                                { value: statsData.total_prescriptions, label: 'Rx Scanned' },
-                                { value: statsData.meds_needing_refill, label: 'Need Refill' },
-                            ].map((s, i) => (
-                                <View key={i} style={styles.overviewStat}>
-                                    <Text style={styles.overviewVal}>{s.value}</Text>
-                                    <Text style={styles.overviewLabel}>{s.label}</Text>
-                                </View>
-                            ))}
-                        </View>
-
-                        {/* Overall health bar */}
-                        <View style={styles.overviewBarWrap}>
-                            <View style={styles.overviewBarBg}>
-                                <View
-                                    style={[
-                                        styles.overviewBarFill,
-                                        { width: `${statsData.overall_health_score}%` },
-                                    ]}
-                                />
-                            </View>
-                            <Text style={styles.overviewBarLabel}>
-                                Family health score: {statsData.overall_health_score}%
-                            </Text>
-                        </View>
-
-                        <Text style={styles.overviewNote}>
-                            💡 Set up daily reminders for each profile in Notification Settings
+                {loading ? (
+                    <>
+                        <MemberCardSkeleton />
+                        <MemberCardSkeleton />
+                    </>
+                ) : members.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <LinearGradient colors={GRADIENTS.teal} style={styles.emptyIcon}>
+                            <MaterialCommunityIcons name="account-group-outline" size={40} color="#fff" />
+                        </LinearGradient>
+                        <Text style={styles.emptyTitle}>
+                            {search ? 'No results found' : 'No family members yet'}
                         </Text>
-                    </LinearGradient>
-                </View>
-            )}
-        </ScrollView>
+                        <Text style={styles.emptySubtitle}>
+                            {search
+                                ? `No one matches "${search}"`
+                                : 'Add your family members to track their medications and prescriptions together.'}
+                        </Text>
+                        {!search && (
+                            <TouchableOpacity
+                                style={styles.emptyBtn}
+                                onPress={() => setModalMode('add')}
+                            >
+                                <LinearGradient colors={GRADIENTS.teal} style={styles.emptyBtnGrad}>
+                                    <Feather name="user-plus" size={16} color="#fff" />
+                                    <Text style={styles.emptyBtnText}>Add First Member</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                ) : (
+                    members.map((m, i) => (
+                        <MemberCard
+                            key={m.id}
+                            member={m}
+                            index={i}
+                            isActive={m.id === activeId}
+                            onSelect={member => setActiveId(member.id)}
+                            onDelete={deleteMember}
+                            onEdit={startEdit}
+                        />
+                    ))
+                )}
 
-            {/* Add modal  */ }
-    <MemberFormModal
-        visible={modalMode === 'add'}
-        onClose={() => setModalMode(null)}
-        onSave={addMember}
-        initialData={null}
-        saving={saving}
-    />
+                {/* Family-wide overview */}
+                {!loading && statsData && members.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Family Health Overview</Text>
+                        <LinearGradient colors={['#0F766E', '#0891B2']} style={styles.overviewCard}>
+                            <View style={styles.overviewRow}>
+                                {[
+                                    { value: statsData.total_meds, label: 'Total Medicines' },
+                                    { value: statsData.total_prescriptions, label: 'Rx Scanned' },
+                                    { value: statsData.meds_needing_refill, label: 'Need Refill' },
+                                ].map((s, i) => (
+                                    <View key={i} style={styles.overviewStat}>
+                                        <Text style={styles.overviewVal}>{s.value}</Text>
+                                        <Text style={styles.overviewLabel}>{s.label}</Text>
+                                    </View>
+                                ))}
+                            </View>
 
-    {/* Edit modal */ }
-    <MemberFormModal
-        visible={modalMode === 'edit'}
-        onClose={() => { setModalMode(null); setEditTarget(null); }}
-        onSave={saveMember}
-        initialData={editTarget}
-        saving={saving}
-    />
+                            {/* Overall health bar */}
+                            <View style={styles.overviewBarWrap}>
+                                <View style={styles.overviewBarBg}>
+                                    <View
+                                        style={[
+                                            styles.overviewBarFill,
+                                            { width: `${statsData.overall_health_score}%` },
+                                        ]}
+                                    />
+                                </View>
+                                <Text style={styles.overviewBarLabel}>
+                                    Family health score: {statsData.overall_health_score}%
+                                </Text>
+                            </View>
+
+                            <Text style={styles.overviewNote}>
+                                💡 Set up daily reminders for each profile in Notification Settings
+                            </Text>
+                        </LinearGradient>
+                    </View>
+                )}
+            </ScrollView>
+
+            {/* Add modal  */}
+            <MemberFormModal
+                visible={modalMode === 'add'}
+                onClose={() => setModalMode(null)}
+                onSave={addMember}
+                initialData={null}
+                saving={saving}
+            />
+
+            {/* Edit modal */}
+            <MemberFormModal
+                visible={modalMode === 'edit'}
+                onClose={() => { setModalMode(null); setEditTarget(null); }}
+                onSave={saveMember}
+                initialData={editTarget}
+                saving={saving}
+            />
         </SafeAreaView>
     );
 }
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     },
     headerTop: {
         flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, gap: 8,
+        paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 40 : 20, paddingBottom: 14, gap: 8,
     },
     backBtn: {
         width: 40, height: 40, borderRadius: 20,
